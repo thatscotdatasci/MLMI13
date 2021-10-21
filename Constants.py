@@ -1,0 +1,3 @@
+REVIEWS_BASEDIR = "data/reviews"
+SENTIMENTS = {"POS", "NEG"}
+REVIEWS_IGNORE_TAGS = {"\n",}
