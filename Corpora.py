@@ -1,6 +1,9 @@
 from Constants import REVIEWS_BASEDIR, SENTIMENTS, REVIEWS_IGNORE_TAGS
 
 import os, codecs, sys
+from collections import defaultdict
+from typing import Tuple, Union, final
+
 from glob import glob
 from nltk.stem.porter import PorterStemmer
 
@@ -22,11 +25,15 @@ class MovieReviewCorpus():
         self.train=[]
         self.test=[]
         # folds for cross-validation
-        self.folds={}
+        self.folds=defaultdict(list)
         # files that contained tokens which could not be processes
         self.rejects=[]
         # files which failed to be processes entirely
         self.failed=[]
+        # Use porter's stemming
+        self.stemming = stemming
+        # Use pos tagging
+        self.pos = pos  # TODO: This has not been implented yet
         # porter stemmer
         self.stemmer=PorterStemmer() if stemming else None
         # part-of-speech tags
@@ -34,14 +41,26 @@ class MovieReviewCorpus():
         # import movie reviews
         self.get_reviews()
         
-    def process_tag(tag, stem: bool = False):
+    def _process_tag(self, tag: str, stem: bool = False) -> Union[Tuple[bool, Tuple[str, str]], Tuple[bool, str]]:
         """
-        Takes in an entry from a .tag file and processes it.
+        Takes a line from a .tag file and processes it.
+
+        :param tag: tag entry from a .tag file
+        :type tag: str
+        :param stem: Apply PorterStemmer, defaults to False
+        :type stem: bool, optional
+        :return: Tuple with first element indicating if processing was successful.
+        :rtype: Union[Tuple[bool, Tuple[str, str]], Tuple[bool, str]]
         """
+        # Strip the tag of leading/trailing whitespace
         stripped = tag.strip()
 
+        # If there is anything left then continue processing the tag
         if stripped:
+            # Split based on internal whitespace chars 
             split = stripped.split()
+
+            # Expecting to have two elements: the word and its tag
             if len(split) == 2:
                 word, pos_tag = stripped.split()
             else:
@@ -50,26 +69,43 @@ class MovieReviewCorpus():
             # Return the non-processed tag
             return False, tag
 
+        # Apply the stemmer if stem is true, else just lowercase the word
         if stem:
             token = self.stemmer.stem(word)
         else:
             token = word.lower()
         return True, (token, pos_tag)
     
-    def process_tag_file(file, stem: bool = False):
+    def _process_tag_file(self, filepath: str, stem: bool = False) -> Tuple[list, list]:
         """
-        Processes a .tag file
+        Processes all of the tags in a .tag file.
+
+        :param filepath: path of the file to be processed
+        :type filepath: str
+        :param stem:  Apply PorterStemmer, defaults to False
+        :type stem: bool, optional
+        :return: The identified tags, and the tags that could not be proccessed
+        :rtype: Tuple[list, list]
         """
+        # Initialise empty lists to hold the processed tags and rejected tags
         token_tags = []
         rejects = []
-        with open(file) as f:
-            entries = (process_tag(l, stem=stem) for l in f.readlines() if l not in REVIEWS_IGNORE_TAGS)
+
+        # Open and process the file
+        with open(filepath) as f:
+
+            # Create generator for processeing each line in the file
+            # Ignore any entries that appear in REVIEWS_IGNORE_TAGS
+            entries = (self._process_tag(l, stem=self.stemming) for l in f.readlines() if l not in REVIEWS_IGNORE_TAGS)
+
+            # If the tag was processed successfully then add to token_tags, else add to rejects
             for e in entries:
                 success, result = e
                 if success:
                     token_tags.append(result)
                 else:
                     rejects.append(result)
+        
         return token_tags, rejects
 
     def get_reviews(self):
@@ -92,23 +128,41 @@ class MovieReviewCorpus():
            you can get the fold number from the review file name.
         """
         
+        # For each of the "POS" and "NEG" folders
         for sentiment in SENTIMENTS:
+            print(f"Processing {sentiment} files")
+            
+            # Identify the files which have the .tag extension
             files = glob(os.path.join(REVIEWS_BASEDIR, sentiment, "*.tag"))
+            print(f"Identified {len(files)} to be processed")
+
+            # Process each .tag file
             for file in files:
+                # print(f"Processing file: {file}")
+
+                # Attempt to process the file; add to self.failed if any exceptions are thrown
                 try:
-                    token_tags, rejected_tags = self.process_file(file, stem=True)
-                    
-                    self.reviews.append((sentiment, token_tags))
-                    
-                    basename = str(os.path.basename(file))
-                    if basename.startswith("cv9"):
-                        self.test.append((sentiment, token_tags))
-                    else:
-                        self.train.append((sentiment, token_tags))
-                    
-                    if rejected_tags:
-                        self.rejects.append((file, rejected_tags))
-                    
+                    token_tags, rejected_tags = self._process_tag_file(file, stem=True)   
                 except Exception as e:
                     self.failed.append((e, file))
                     continue
+
+                result = (sentiment, token_tags)
+
+                # Add results to self.reviews
+                self.reviews.append(result)
+                
+                # Add results to self.test if the filename starts cv9, else add to self.train
+                basename = str(os.path.basename(file))
+                if basename.startswith("cv9"):
+                    self.test.append(result)
+                else:
+                    self.train.append(result)
+
+                # Add the results to the appropriate entry of the self.fold dict, based on the filename
+                assert basename[2].isdigit()
+                self.folds[basename[2]].append(result)
+                
+                # If any tags were rejected then add these to self.rejects
+                if rejected_tags:
+                    self.rejects.append((file, rejected_tags))
