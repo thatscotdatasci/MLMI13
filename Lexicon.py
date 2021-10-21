@@ -1,5 +1,6 @@
+from decimal import InvalidOperation
 from Analysis import Evaluation
-from Analysis import Evaluation
+from Constants import CORRECT_CLASSIFICATION, INCORRECT_CLASSIFICATION, POLARITY_POSITIVE, SENTIMENTS
 
 class SentimentLexicon(Evaluation):
     def __init__(self):
@@ -38,4 +39,24 @@ class SentimentLexicon(Evaluation):
         """
         # reset predictions
         self.predictions=[]
+        
         # TODO Q0
+
+        for review in reviews:
+            label, content = review
+
+            magnitude_sum = 0
+            polarity_sum = 0
+
+            for entry in content:
+                token, _ = entry
+                lexicon_record = self.lexicon.get(token)
+                
+                if lexicon_record:
+                    magnitude_sum += lexicon_record[0]
+                    polarity_sum += 1 if lexicon_record[1] == POLARITY_POSITIVE else -1
+
+            score = magnitude_sum if magnitude else polarity_sum
+            prediction = SENTIMENTS.pos if score > threshold else SENTIMENTS.neg
+
+            self.predictions.append(CORRECT_CLASSIFICATION if prediction == prediction else INCORRECT_CLASSIFICATION)

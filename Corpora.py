@@ -129,7 +129,7 @@ class MovieReviewCorpus():
         """
         
         # For each of the "POS" and "NEG" folders
-        for sentiment in SENTIMENTS:
+        for sentiment in [e.value for e in SENTIMENTS]:
             print(f"Processing {sentiment} files")
             
             # Identify the files which have the .tag extension
@@ -142,7 +142,7 @@ class MovieReviewCorpus():
 
                 # Attempt to process the file; add to self.failed if any exceptions are thrown
                 try:
-                    token_tags, rejected_tags = self._process_tag_file(file, stem=True)   
+                    token_tags, rejected = self._process_tag_file(file, stem=True)   
                 except Exception as e:
                     self.failed.append((e, file))
                     continue
@@ -164,5 +164,5 @@ class MovieReviewCorpus():
                 self.folds[basename[2]].append(result)
                 
                 # If any tags were rejected then add these to self.rejects
-                if rejected_tags:
-                    self.rejects.append((file, rejected_tags))
+                if rejected:
+                    self.rejects.append((file, rejected))
