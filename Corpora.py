@@ -9,15 +9,18 @@ from nltk.stem.porter import PorterStemmer
 
 class MovieReviewCorpus():
     
-    def __init__(self,stemming,pos):
+    def __init__(self, stemming: bool, pos: bool, review: str = None):
         """
-        initialisation of movie review corpus.
+        Initialisation of movie review corpus.
 
         @param stemming: use porter's stemming?
         @type stemming: boolean
 
         @param pos: use pos tagging?
         @type pos: boolean
+
+        @param review: process a single, specified review
+        @type pos: str
         """
         # raw movie reviews
         self.reviews=[]
@@ -39,7 +42,7 @@ class MovieReviewCorpus():
         # part-of-speech tags
         self.pos=pos
         # import movie reviews
-        self.get_reviews()
+        self.get_reviews(review=review)
         
     def _process_tag(self, tag: str, stem: bool = False) -> Union[Tuple[bool, Tuple[str, str]], Tuple[bool, str]]:
         """
@@ -87,6 +90,10 @@ class MovieReviewCorpus():
         :return: The identified tags, and the tags that could not be proccessed
         :rtype: Tuple[list, list]
         """
+        # Raise an exception if the file does not exist
+        if not os.path.isfile(filepath):
+            raise FileNotFoundError(f"{filepath} does not exist")
+
         # Initialise empty lists to hold the processed tags and rejected tags
         token_tags = []
         rejects = []
@@ -108,7 +115,7 @@ class MovieReviewCorpus():
         
         return token_tags, rejects
 
-    def get_reviews(self):
+    def get_reviews(self, review: str = None):
         """
         processing of movie reviews.
 
@@ -128,18 +135,34 @@ class MovieReviewCorpus():
            you can get the fold number from the review file name.
         """
         
-        # For each of the "POS" and "NEG" folders
-        for sentiment in [e.value for e in SENTIMENTS]:
+        # Initialise an empty list of the files to be processed
+        file_dict = {}
+
+        # If a specific review has been specified then only process this one
+        # Otherwise, look for all reviews in the POS and NEG directories
+        if review:
+            sentiment = review.split("/")[2]
+            file_dict[sentiment] = [review]
+        else:
+            # For each of the "POS" and "NEG" folders
+            for sentiment in [SENTIMENTS.pos.review_label, SENTIMENTS.neg.review_label]:
+                
+                # Identify the files which have the .tag extension
+                sent_files = glob(os.path.join(REVIEWS_BASEDIR, sentiment, "*.tag"))
+                print(f"Identified {len(sent_files)} {sentiment} files to be processed")
+
+                file_dict[sentiment] = sent_files
+
+        # Process each .tag file
+        for sentiment, files in file_dict.items():
+
+            # Print what files are being processed
+            # List them if there are fewer than 20
             print(f"Processing {sentiment} files")
-            
-            # Identify the files which have the .tag extension
-            files = glob(os.path.join(REVIEWS_BASEDIR, sentiment, "*.tag"))
-            print(f"Identified {len(files)} to be processed")
+            if len(files) < 20:
+                print(files)
 
-            # Process each .tag file
             for file in files:
-                # print(f"Processing file: {file}")
-
                 # Attempt to process the file; add to self.failed if any exceptions are thrown
                 try:
                     token_tags, rejected = self._process_tag_file(file, stem=True)   

@@ -1,6 +1,6 @@
 from decimal import InvalidOperation
 from Analysis import Evaluation
-from Constants import CORRECT_CLASSIFICATION, INCORRECT_CLASSIFICATION, POLARITY_POSITIVE, SENTIMENTS
+from Constants import CORRECT_CLASSIFICATION, INCORRECT_CLASSIFICATION, POLARITIES, SENTIMENTS
 
 class SentimentLexicon(Evaluation):
     def __init__(self):
@@ -39,6 +39,7 @@ class SentimentLexicon(Evaluation):
         """
         # reset predictions
         self.predictions=[]
+        self.breakdowns = []
         
         # TODO Q0
 
@@ -47,16 +48,34 @@ class SentimentLexicon(Evaluation):
 
             magnitude_sum = 0
             polarity_sum = 0
+            review_breakdown = []
 
             for entry in content:
                 token, _ = entry
                 lexicon_record = self.lexicon.get(token)
                 
                 if lexicon_record:
-                    magnitude_sum += lexicon_record[0]
-                    polarity_sum += 1 if lexicon_record[1] == POLARITY_POSITIVE else -1
+                    magnitude_info, polarity_info = lexicon_record
+
+                    if polarity_info == SENTIMENTS.pos.lexicon_label:
+                        sign = SENTIMENTS.pos.sign
+                    elif polarity_info == SENTIMENTS.neg.lexicon_label:
+                        sign = SENTIMENTS.neg.sign
+                    elif polarity_info == SENTIMENTS.neut.lexicon_label:
+                        sign = SENTIMENTS.neut.sign
+                    
+                    polarity_sum += sign
+
+                    magnitude = sign*POLARITIES.weak.lexicon_value if magnitude_info == POLARITIES.weak.lexicon_label else sign*POLARITIES.strong.lexicon_value
+                    polarity_sum += magnitude
+
+                    review_breakdown.append((entry, magnitude_info, polarity_info, sign, magnitude))
+                    continue
+            self.breakdowns.append(review_breakdown)
 
             score = magnitude_sum if magnitude else polarity_sum
-            prediction = SENTIMENTS.pos if score > threshold else SENTIMENTS.neg
+            prediction = SENTIMENTS.pos.review_label if score > threshold else SENTIMENTS.neg.review_label
 
-            self.predictions.append(CORRECT_CLASSIFICATION if prediction == prediction else INCORRECT_CLASSIFICATION)
+            correct_prediction = CORRECT_CLASSIFICATION if prediction == label else INCORRECT_CLASSIFICATION
+
+            self.predictions.append(correct_prediction)
