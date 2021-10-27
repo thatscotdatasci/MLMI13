@@ -66,8 +66,8 @@ class SentimentLexicon(Evaluation):
                     
                     magnitude_sum += sign
 
-                    magnitude = sign*POLARITIES.weak.lexicon_value if magnitude_info == POLARITIES.weak.lexicon_label else sign*POLARITIES.strong.lexicon_value
-                    polarity_sum += magnitude
+                    polarity = sign*POLARITIES.weak.lexicon_value if magnitude_info == POLARITIES.weak.lexicon_label else sign*POLARITIES.strong.lexicon_value
+                    polarity_sum += polarity
 
                     review_breakdown.append((entry, magnitude_info, polarity_info, sign, magnitude))
                     continue
