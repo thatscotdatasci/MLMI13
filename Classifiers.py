@@ -68,15 +68,13 @@ class NaiveBayesText(Evaluation):
             SENTIMENTS.neg.review_label: neg_count/len(reviews),
         }
 
-    def getCondProb(self, reviews: list, smoothing: True):
+    def getCondProb(self, reviews: list):
         """
         Determine the conditional probability of each word given the class using the
         frequency of occurrences of the word in the class corpus.
 
         @param reviews: movie reviews
         @type reviews: list of (string, list) tuples corresponding to (label, content)
-        @param smoothing: use smoothing?
-        @type smoothing: boolean
         """
         pos_vocab = defaultdict(int)
         neg_vocab = defaultdict(int)
@@ -92,14 +90,12 @@ class NaiveBayesText(Evaluation):
             for token in review:
                 dict_ref[token] += 1
 
-        total_vocab = Counter(pos_vocab) + Counter(neg_vocab)
-
         total_pos_count = sum(pos_vocab.values())
         total_neg_count = sum(neg_vocab.values())
-        vocab_size = len(total_vocab)
+        vocab_size = len(set(pos_vocab.keys()) | set(neg_vocab.keys()))
 
         laplacian_k = 0
-        if smoothing:
+        if self.smoothing:
             total_pos_count += vocab_size
             total_neg_count += vocab_size
             laplacian_k = 1
@@ -177,7 +173,7 @@ class NaiveBayesText(Evaluation):
         self.getPrior(reviews)
 
         self.condProb = {}
-        self.getCondProb(reviews, self.smoothing)
+        self.getCondProb(reviews)
 
 
     def test(self,reviews):
