@@ -64,12 +64,12 @@ class SentimentLexicon(Evaluation):
                     elif polarity_info == SENTIMENTS.neut.lexicon_label:
                         sign = SENTIMENTS.neut.sign
                     
-                    magnitude_sum += sign
+                    polarity_sum += sign
 
-                    polarity = sign*POLARITIES.weak.lexicon_value if magnitude_info == POLARITIES.weak.lexicon_label else sign*POLARITIES.strong.lexicon_value
-                    polarity_sum += polarity
+                    magnitude_val = sign*POLARITIES.weak.lexicon_value if magnitude_info == POLARITIES.weak.lexicon_label else sign*POLARITIES.strong.lexicon_value
+                    magnitude_sum += magnitude_val
 
-                    review_breakdown.append((entry, magnitude_info, polarity_info, sign, magnitude))
+                    review_breakdown.append((entry, magnitude_info, polarity_info, sign, magnitude_val))
                     continue
             self.breakdowns.append(review_breakdown)
 
