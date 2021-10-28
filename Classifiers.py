@@ -1,7 +1,11 @@
-import os
-from subprocess import call
-from nltk.util import ngrams
 from Analysis import Evaluation
+from Constants import SENTIMENTS, CORRECT_CLASSIFICATION, INCORRECT_CLASSIFICATION
+
+import os
+from collections import defaultdict, Counter
+from subprocess import call
+
+from nltk.util import ngrams
 import numpy as np
 from sklearn import svm
 
@@ -11,7 +15,7 @@ class NaiveBayesText(Evaluation):
         initialisation of NaiveBayesText classifier.
 
         @param smoothing: use smoothing?
-        @type smoothing: booleanp
+        @type smoothing: boolean
 
         @param bigrams: add bigrams?
         @type bigrams: boolean
@@ -39,6 +43,77 @@ class NaiveBayesText(Evaluation):
         # stored predictions from test instances
         self.predictions=[]
 
+
+    def getPrior(self, reviews):
+        """
+        Determine the priors for POS and NEG classes by dividing the number of each review by
+        the total number of reviews.
+
+        Set the values in the self.prior dict.
+
+        @param reviews: movie reviews
+        @type reviews: list of (string, list) tuples corresponding to (label, content)
+        """
+        pos_count = 0
+        neg_count = 0
+        for sentiment, _ in reviews:
+            if sentiment == SENTIMENTS.pos.review_label:
+                pos_count += 1
+            elif sentiment == SENTIMENTS.neg.review_label:
+                neg_count += 1
+            else:
+                raise Exception("Found a review that this neither positive nor negative")
+        self.prior = {
+            SENTIMENTS.pos.review_label: pos_count/len(reviews),
+            SENTIMENTS.neg.review_label: neg_count/len(reviews),
+        }
+
+    def getCondProb(self, reviews: list, smoothing: True):
+        """
+        Determine the conditional probability of each word given the class using the
+        frequency of occurrences of the word in the class corpus.
+
+        @param reviews: movie reviews
+        @type reviews: list of (string, list) tuples corresponding to (label, content)
+        @param smoothing: use smoothing?
+        @type smoothing: boolean
+        """
+        pos_vocab = defaultdict(int)
+        neg_vocab = defaultdict(int)
+
+        for sentiment, review in reviews:
+            if sentiment == SENTIMENTS.pos.review_label:
+                dict_ref = pos_vocab
+            elif sentiment == SENTIMENTS.neg.review_label:
+                dict_ref = neg_vocab
+            else:
+                raise Exception("Found a review that this neither positive nor negative")
+
+            for token in review:
+                dict_ref[token] += 1
+
+        total_vocab = Counter(pos_vocab) + Counter(neg_vocab)
+
+        total_pos_count = sum(pos_vocab.values())
+        total_neg_count = sum(neg_vocab.values())
+        vocab_size = len(total_vocab)
+
+        laplacian_k = 0
+        if smoothing:
+            total_pos_count += vocab_size
+            total_neg_count += vocab_size
+            laplacian_k = 1
+
+        self.condProb = {
+            SENTIMENTS.pos.review_label: {
+                token: (count+laplacian_k)/total_pos_count for token, count in pos_vocab.items()
+            },
+            SENTIMENTS.neg.review_label: {
+                token: (count+laplacian_k)/total_neg_count for token, count in neg_vocab.items()
+            }
+        }
+
+
     def extractVocabulary(self,reviews):
         """
         extract features from training data and store in self.vocabulary.
@@ -46,7 +121,7 @@ class NaiveBayesText(Evaluation):
         @param reviews: movie reviews
         @type reviews: list of (string, list) tuples corresponding to (label, content)
         """
-        for sentiment,review in reviews:
+        for _, review in reviews:
             for token in self.extractReviewTokens(review):
                 self.vocabulary.add(token)
 
@@ -95,6 +170,15 @@ class NaiveBayesText(Evaluation):
         """
         # TODO Q1
         # TODO Q2 (use switch for smoothing from self.smoothing)
+        self.vocabulary = set()
+        self.extractVocabulary(reviews)
+
+        self.prior = {}
+        self.getPrior(reviews)
+
+        self.condProb = {}
+        self.getCondProb(reviews, self.smoothing)
+
 
     def test(self,reviews):
         """
@@ -105,6 +189,22 @@ class NaiveBayesText(Evaluation):
         @type reviews: list of (string, list) tuples corresponding to (label, content)
         """
         # TODO Q1
+        for label, review in reviews:
+            log_likelihood = {
+                SENTIMENTS.pos.review_label: np.log(self.prior[SENTIMENTS.pos.review_label]),
+                SENTIMENTS.neg.review_label: np.log(self.prior[SENTIMENTS.neg.review_label])
+            }
+
+            for token in review:
+                for test_sentiment in [SENTIMENTS.pos.review_label, SENTIMENTS.neg.review_label]:
+                    log_likelihood[test_sentiment] += np.log(self.condProb[test_sentiment].get(token, 1))
+
+            prediction = max(log_likelihood, key=log_likelihood.get)
+
+            correct_prediction = CORRECT_CLASSIFICATION if prediction == label else INCORRECT_CLASSIFICATION
+            self.predictions.append(correct_prediction)
+
+
 
 class SVMText(Evaluation):
     def __init__(self,bigrams,trigrams,discard_closed_class):
