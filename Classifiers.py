@@ -1,9 +1,6 @@
 from Analysis import Evaluation
 from Constants import SENTIMENTS, CORRECT_CLASSIFICATION, INCORRECT_CLASSIFICATION
 
-import os
-from collections import defaultdict, Counter
-from subprocess import call
 
 from nltk.util import ngrams
 import numpy as np
@@ -76,37 +73,33 @@ class NaiveBayesText(Evaluation):
         @param reviews: movie reviews
         @type reviews: list of (string, list) tuples corresponding to (label, content)
         """
-        pos_vocab = defaultdict(int)
-        neg_vocab = defaultdict(int)
 
+        initial_frequencies = {word: 0 for word, _ in self.vocabulary}
+        word_frequencies = {
+            SENTIMENTS.pos.review_label: initial_frequencies.copy(),
+            SENTIMENTS.neg.review_label: initial_frequencies.copy(),
+        }
+    
         for sentiment, review in reviews:
-            if sentiment == SENTIMENTS.pos.review_label:
-                dict_ref = pos_vocab
-            elif sentiment == SENTIMENTS.neg.review_label:
-                dict_ref = neg_vocab
-            else:
-                raise Exception("Found a review that this neither positive nor negative")
+            for word, _ in review:
+                word_frequencies[sentiment][word] += 1
 
-            for token in review:
-                dict_ref[token] += 1
-
-        total_pos_count = sum(pos_vocab.values())
-        total_neg_count = sum(neg_vocab.values())
-        vocab_size = len(set(pos_vocab.keys()) | set(neg_vocab.keys()))
+        total_pos_count = sum(word_frequencies[SENTIMENTS.pos.review_label].values())
+        total_neg_count = sum(word_frequencies[SENTIMENTS.neg.review_label].values())
 
         laplacian_k = 0
         if self.smoothing:
-            total_pos_count += vocab_size
-            total_neg_count += vocab_size
             laplacian_k = 1
+            total_pos_count += laplacian_k*len(self.vocabulary)
+            total_neg_count += laplacian_k*len(self.vocabulary)
 
         self.condProb = {
             SENTIMENTS.pos.review_label: {
-                token: (count+laplacian_k)/total_pos_count for token, count in pos_vocab.items()
+                word: (word_frequencies[SENTIMENTS.pos.review_label][word]+laplacian_k)/total_pos_count for word, _ in self.vocabulary
             },
             SENTIMENTS.neg.review_label: {
-                token: (count+laplacian_k)/total_neg_count for token, count in neg_vocab.items()
-            }
+                word: (word_frequencies[SENTIMENTS.neg.review_label][word]+laplacian_k)/total_neg_count for word, _ in self.vocabulary
+            },
         }
 
 
@@ -191,9 +184,9 @@ class NaiveBayesText(Evaluation):
                 SENTIMENTS.neg.review_label: np.log(self.prior[SENTIMENTS.neg.review_label])
             }
 
-            for token in review:
+            for word, _ in review:
                 for test_sentiment in [SENTIMENTS.pos.review_label, SENTIMENTS.neg.review_label]:
-                    log_likelihood[test_sentiment] += np.log(self.condProb[test_sentiment].get(token, 1))
+                    log_likelihood[test_sentiment] += np.log(self.condProb[test_sentiment].get(word, 1))
 
             prediction = max(log_likelihood, key=log_likelihood.get)
 
