@@ -1,10 +1,13 @@
 import math,sys
+from itertools import cycle
+
+from Corpora import MovieReviewCorpus
 
 class Evaluation():
     """
     general evaluation class implemented by classifiers
     """
-    def crossValidate(self,corpus):
+    def crossValidate(self,corpus: MovieReviewCorpus):
         """
         function to perform 10-fold cross-validation for a classifier.
         each classifier will be inheriting from the evaluation class so you will have access
@@ -19,7 +22,34 @@ class Evaluation():
         """
         # reset predictions
         self.predictions=[]
+
+        # Determine how many folds need to be processed
+        num_folds = len(corpus.folds)
+
+        # Create an iterator to cycle through the folds
+        cycle_folds = cycle(sorted(corpus.folds.keys()))
+        
         # TODO Q3
+        for _ in range(num_folds):
+            # Set the test_files
+            test_fold = next(cycle_folds)
+            print(f'Test fold: {test_fold}')
+            test_files = corpus.folds[test_fold]
+
+            # Set the train_files
+            train_files = []
+            for _ in range(num_folds-1):
+                train_fold = next(cycle_folds)
+                print(f'Train fold: {train_fold}')
+                train_files.extend(corpus.folds[train_fold])
+            
+            # Perform training and testing
+            self.train(train_files)
+            self.test(test_files)
+
+            # Move the iterator one forward
+            next(cycle_folds)
+            
 
     def getStdDeviation(self):
         """
