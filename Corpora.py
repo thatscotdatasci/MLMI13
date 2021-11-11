@@ -9,14 +9,14 @@ from nltk.stem.porter import PorterStemmer
 
 class MovieReviewCorpus():
     
-    def __init__(self, stemming: bool, pos: bool, review: str = None):
+    def __init__(self, stemming: bool = False, pos: bool = True, review: str = None):
         """
         Initialisation of movie review corpus.
 
-        @param stemming: use porter's stemming?
+        @param stemming: use porter's stemming? Defaults to False
         @type stemming: boolean
 
-        @param pos: use pos tagging?
+        @param pos: use pos tagging? Defaults to False
         @type pos: boolean
 
         @param review: process a single, specified review
@@ -44,14 +44,12 @@ class MovieReviewCorpus():
         # import movie reviews
         self.get_reviews(review=review)
         
-    def _process_tag(self, tag: str, stem: bool = False) -> Union[Tuple[bool, Tuple[str, str]], Tuple[bool, str]]:
+    def _process_tag(self, tag: str) -> Union[Tuple[bool, Tuple[str, str]], Tuple[bool, str]]:
         """
         Takes a line from a .tag file and processes it.
 
         :param tag: tag entry from a .tag file
         :type tag: str
-        :param stem: Apply PorterStemmer, defaults to False
-        :type stem: bool, optional
         :return: Tuple with first element indicating if processing was successful.
         :rtype: Union[Tuple[bool, Tuple[str, str]], Tuple[bool, str]]
         """
@@ -73,13 +71,13 @@ class MovieReviewCorpus():
             return False, tag
 
         # Apply the stemmer if stem is true, else just lowercase the word
-        if stem:
+        if self.stemmer:
             token = self.stemmer.stem(word)
         else:
             token = word.lower()
         return True, (token, pos_tag)
     
-    def _process_tag_file(self, filepath: str, stem: bool = False) -> Tuple[list, list]:
+    def _process_tag_file(self, filepath: str) -> Tuple[list, list]:
         """
         Processes all of the tags in a .tag file.
 
@@ -103,7 +101,7 @@ class MovieReviewCorpus():
 
             # Create generator for processeing each line in the file
             # Ignore any entries that appear in REVIEWS_IGNORE_TAGS
-            entries = (self._process_tag(l, stem=self.stemming) for l in f.readlines() if l not in REVIEWS_IGNORE_TAGS)
+            entries = (self._process_tag(l) for l in f.readlines() if l not in REVIEWS_IGNORE_TAGS)
 
             # If the tag was processed successfully then add to token_tags, else add to rejects
             for e in entries:
@@ -165,7 +163,7 @@ class MovieReviewCorpus():
             for file in files:
                 # Attempt to process the file; add to self.failed if any exceptions are thrown
                 try:
-                    token_tags, rejected = self._process_tag_file(file, stem=True)   
+                    token_tags, rejected = self._process_tag_file(file)   
                 except Exception as e:
                     self.failed.append((e, file))
                     continue
