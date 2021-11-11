@@ -1,6 +1,7 @@
 from Analysis import Evaluation
 from Constants import SENTIMENTS, CORRECT_CLASSIFICATION, INCORRECT_CLASSIFICATION
 
+from collections import Counter
 from nltk.util import ngrams
 import numpy as np
 from sklearn import svm
@@ -253,7 +254,7 @@ class SVMText(Evaluation):
         """
         self.svm_classifier = svm.SVC()
         self.predictions=[]
-        self.vocabulary=set()
+        self.vocabulary={}
         # add in bigrams?
         self.bigrams=bigrams
         # add in trigrams?
@@ -262,10 +263,12 @@ class SVMText(Evaluation):
         self.discard_closed_class=discard_closed_class
 
     def extractVocabulary(self,reviews):
-        self.vocabulary = set()
-        for sentiment, review in reviews:
-            for token in self.extractReviewTokens(review):
-                 self.vocabulary.add(token)
+        review_entries = set()
+        for _, review in reviews:
+            review_tokens = self.extractReviewTokens(review)
+            review_words = [tuple(word for word, _ in token) for token in review_tokens]
+            review_entries.update(review_words)
+        self.vocabulary = {val: i for i, val in enumerate(review_entries)}
 
     def extractReviewTokens(self,review):
         """
@@ -282,12 +285,25 @@ class SVMText(Evaluation):
             if len(term)==2 and self.discard_closed_class:
                 if term[1][0:2] in ["NN","JJ","RB","VB"]: text.append(term)
             else:
-                text.append(term)
+                text.append((term,))
         if self.bigrams:
             for bigram in ngrams(review,2): text.append(term)
         if self.trigrams:
             for trigram in ngrams(review,3): text.append(term)
         return text
+
+    def extractReviewFeatures(self, review, testing: bool = False):
+        review_tokens = self.extractReviewTokens(review)
+        review_words = [tuple(word for word, _ in token) for token in review_tokens]
+
+        word_frequencies = Counter(review_words)
+
+        word_freq_array = np.zeros(len(self.vocabulary))
+        for word, freq in word_frequencies.items():
+            if word not in self.vocabulary and testing:
+                continue
+            word_freq_array[self.vocabulary[word]] = freq
+        return word_freq_array
 
     def getFeatures(self,reviews):
         """
@@ -303,10 +319,15 @@ class SVMText(Evaluation):
         @type reviews: list of (string, list) tuples corresponding to (label, content)
         """
 
-        self.input_features = []
+        self.input_features = np.zeros((len(reviews), len(self.vocabulary)))
         self.labels = []
 
         # TODO Q6.
+
+        for i, r_entry in enumerate(reviews):
+            sentiment, review = r_entry
+            self.input_features[i,:] = self.extractReviewFeatures(review)
+            self.labels.append(sentiment)
 
     def train(self,reviews):
         """
@@ -316,6 +337,9 @@ class SVMText(Evaluation):
         @param reviews: training data
         @type reviews: list of (string, list) tuples corresponding to (label, content)
         """
+        # get the vocabulary
+        self.extractVocabulary(reviews)
+
         # function to determine features in training set.
         self.getFeatures(reviews)
 
@@ -332,3 +356,10 @@ class SVMText(Evaluation):
         """
 
         # TODO Q6.1
+        for label, review in reviews:
+            review_features = self.extractReviewFeatures(review, testing=True)
+            
+            prediction = self.svm_classifier.predict([review_features])
+
+            correct_prediction = CORRECT_CLASSIFICATION if prediction == label else INCORRECT_CLASSIFICATION
+            self.predictions.append(correct_prediction)
