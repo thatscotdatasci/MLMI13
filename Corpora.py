@@ -35,12 +35,8 @@ class MovieReviewCorpus():
         self.failed=[]
         # Use porter's stemming
         self.stemming = stemming
-        # Use pos tagging
-        self.pos = pos  # TODO: This has not been implented yet
         # porter stemmer
         self.stemmer=PorterStemmer() if stemming else None
-        # part-of-speech tags
-        self.pos=pos
         # import movie reviews
         self.get_reviews(review=review)
         
