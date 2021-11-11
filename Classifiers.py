@@ -7,7 +7,7 @@ import numpy as np
 from sklearn import svm
 
 class NaiveBayesText(Evaluation):
-    def __init__(self,smoothing,bigrams,trigrams,discard_closed_class):
+    def __init__(self,smoothing,bigrams,trigrams,discard_closed_class,pos):
         """
         initialisation of NaiveBayesText classifier.
 
@@ -22,6 +22,9 @@ class NaiveBayesText(Evaluation):
 
         @param discard_closed_class: restrict unigrams to nouns, adjectives, adverbs and verbs?
         @type discard_closed_class: boolean
+
+        @param pos: use POS information?
+        @type pos: boolean
         """
         # set of features for classifier
         self.vocabulary=set()
@@ -37,8 +40,18 @@ class NaiveBayesText(Evaluation):
         self.trigrams=trigrams
         # restrict unigrams to nouns, adjectives, adverbs and verbs?
         self.discard_closed_class=discard_closed_class
+        # use POS information?
+        self.pos = pos
         # stored predictions from test instances
         self.predictions=[]
+
+
+    def getReviewWords(self,review_tokens):
+        if self.pos:
+            review_words = review_tokens
+        else:
+            review_words = [tuple(word for word, _ in token) for token in review_tokens]
+        return review_words
 
 
     def getPrior(self, reviews):
@@ -73,8 +86,8 @@ class NaiveBayesText(Evaluation):
         @param reviews: movie reviews
         @type reviews: list of (string, list) tuples corresponding to (label, content)
         """
-
-        initial_frequencies = {tuple(word for word, _ in token): 0 for token in self.vocabulary}
+        vocab_words = self.getReviewWords(self.vocabulary)
+        initial_frequencies = {word: 0 for word in vocab_words}
         word_frequencies = {
             SENTIMENTS.pos.review_label: initial_frequencies.copy(),
             SENTIMENTS.neg.review_label: initial_frequencies.copy(),
@@ -82,7 +95,7 @@ class NaiveBayesText(Evaluation):
     
         for sentiment, review in reviews:
             review_tokens = self.extractReviewTokens(review)
-            review_words = [tuple(word for word, _ in token) for token in review_tokens]
+            review_words = self.getReviewWords(review_tokens)
             for words in review_words:
                 word_frequencies[sentiment][words] += 1
 
@@ -129,7 +142,7 @@ class NaiveBayesText(Evaluation):
         for token in review:
             # check if pos tags are included in review e.g. ("bad","JJ")
             if len(token)==2 and self.discard_closed_class:
-                if token[1][0:2] in ["NN","JJ","RB","VB"]: text.append(token)
+                if token[1][0:2] in ["NN","JJ","RB","VB"]: text.append((token,))
             else:
                 # Return unigrams as single element tuple to match ngrams
                 text.append((token,))
@@ -195,7 +208,7 @@ class NaiveBayesText(Evaluation):
             }
 
             review_tokens = self.extractReviewTokens(review)
-            review_words = [tuple(word for word, _ in token) for token in review_tokens]
+            review_words = self.getReviewWords(review_tokens)
 
             for word in review_words:
                 for test_sentiment in [SENTIMENTS.pos.review_label, SENTIMENTS.neg.review_label]:
@@ -233,7 +246,7 @@ class NaiveBayesText(Evaluation):
 
 
 class SVMText(Evaluation):
-    def __init__(self,bigrams,trigrams,discard_closed_class):
+    def __init__(self,bigrams,trigrams,discard_closed_class,pos):
         """
         initialisation of SVMText object
 
@@ -251,6 +264,9 @@ class SVMText(Evaluation):
 
         @param discard_closed_class: restrict unigrams to nouns, adjectives, adverbs and verbs?
         @type discard_closed_class: boolean
+
+        @param pos: use POS information?
+        @type pos: boolean
         """
         self.svm_classifier = svm.SVC()
         self.predictions=[]
@@ -261,12 +277,21 @@ class SVMText(Evaluation):
         self.trigrams=trigrams
         # restrict to nouns, adjectives, adverbs and verbs?
         self.discard_closed_class=discard_closed_class
+        # use POS information?
+        self.pos = pos
+
+    def getReviewWords(self,review_tokens):
+        if self.pos:
+            review_words = review_tokens
+        else:
+            review_words = [tuple(word for word, _ in token) for token in review_tokens]
+        return review_words
 
     def extractVocabulary(self,reviews):
         review_entries = set()
         for _, review in reviews:
             review_tokens = self.extractReviewTokens(review)
-            review_words = [tuple(word for word, _ in token) for token in review_tokens]
+            review_words = self.getReviewWords(review_tokens)
             review_entries.update(review_words)
         self.vocabulary = {val: i for i, val in enumerate(review_entries)}
 
@@ -283,18 +308,19 @@ class SVMText(Evaluation):
         for term in review:
             # check if pos tags are included in review e.g. ("bad","JJ")
             if len(term)==2 and self.discard_closed_class:
-                if term[1][0:2] in ["NN","JJ","RB","VB"]: text.append(term)
+                if term[1][0:2] in ["NN","JJ","RB","VB"]: text.append((term,))
             else:
+                # Return unigrams as single element tuple to match ngrams
                 text.append((term,))
         if self.bigrams:
-            for bigram in ngrams(review,2): text.append(term)
+            for bigram in ngrams(review, 2, pad_left=True, pad_right=True, left_pad_symbol=('<s>', '<s>'), right_pad_symbol=('</s>', '</s>')): text.append(bigram)
         if self.trigrams:
-            for trigram in ngrams(review,3): text.append(term)
+            for trigram in ngrams(review, 3, pad_left=True, pad_right=True, left_pad_symbol=('<s>', '<s>'), right_pad_symbol=('</s>', '</s>')): text.append(trigram)
         return text
 
     def extractReviewFeatures(self, review, testing: bool = False):
         review_tokens = self.extractReviewTokens(review)
-        review_words = [tuple(word for word, _ in token) for token in review_tokens]
+        review_words = self.getReviewWords(review_tokens)
 
         word_frequencies = Counter(review_words)
 
