@@ -1,7 +1,6 @@
 from Analysis import Evaluation
 from Constants import SENTIMENTS, CORRECT_CLASSIFICATION, INCORRECT_CLASSIFICATION
 
-
 from nltk.util import ngrams
 import numpy as np
 from sklearn import svm
@@ -74,15 +73,17 @@ class NaiveBayesText(Evaluation):
         @type reviews: list of (string, list) tuples corresponding to (label, content)
         """
 
-        initial_frequencies = {word: 0 for word, _ in self.vocabulary}
+        initial_frequencies = {tuple(word for word, _ in token): 0 for token in self.vocabulary}
         word_frequencies = {
             SENTIMENTS.pos.review_label: initial_frequencies.copy(),
             SENTIMENTS.neg.review_label: initial_frequencies.copy(),
         }
     
         for sentiment, review in reviews:
-            for word, _ in review:
-                word_frequencies[sentiment][word] += 1
+            review_tokens = self.extractReviewTokens(review)
+            review_words = [tuple(word for word, _ in token) for token in review_tokens]
+            for words in review_words:
+                word_frequencies[sentiment][words] += 1
 
         total_pos_count = sum(word_frequencies[SENTIMENTS.pos.review_label].values())
         total_neg_count = sum(word_frequencies[SENTIMENTS.neg.review_label].values())
@@ -95,10 +96,10 @@ class NaiveBayesText(Evaluation):
 
         self.condProb = {
             SENTIMENTS.pos.review_label: {
-                word: (word_frequencies[SENTIMENTS.pos.review_label][word]+laplacian_k)/total_pos_count for word, _ in self.vocabulary
+                word: (word_frequencies[SENTIMENTS.pos.review_label][word]+laplacian_k)/total_pos_count for word in initial_frequencies.keys()
             },
             SENTIMENTS.neg.review_label: {
-                word: (word_frequencies[SENTIMENTS.neg.review_label][word]+laplacian_k)/total_neg_count for word, _ in self.vocabulary
+                word: (word_frequencies[SENTIMENTS.neg.review_label][word]+laplacian_k)/total_neg_count for word in initial_frequencies.keys()
             },
         }
 
@@ -129,11 +130,12 @@ class NaiveBayesText(Evaluation):
             if len(token)==2 and self.discard_closed_class:
                 if token[1][0:2] in ["NN","JJ","RB","VB"]: text.append(token)
             else:
-                text.append(token)
+                # Return unigrams as single element tuple to match ngrams
+                text.append((token,))
         if self.bigrams:
-            for bigram in ngrams(review,2): text.append(bigram)
+            for bigram in ngrams(review, 2, pad_left=True, pad_right=True, left_pad_symbol=('<s>', '<s>'), right_pad_symbol=('</s>', '</s>')): text.append(bigram)
         if self.trigrams:
-            for trigram in ngrams(review,3): text.append(trigram)
+            for trigram in ngrams(review, 3, pad_left=True, pad_right=True, left_pad_symbol=('<s>', '<s>'), right_pad_symbol=('</s>', '</s>')): text.append(trigram)
         return text
 
     def create_vocab_dict(self):
@@ -169,30 +171,64 @@ class NaiveBayesText(Evaluation):
         self.getCondProb(reviews)
 
 
-    def test(self,reviews):
+    def test(self,reviews,verbose: bool = False):
         """
         test NaiveBayesText classifier and store predictions in self.predictions.
         self.predictions should contain a "+" if prediction was correct and "-" otherwise.
 
         @param reviews: movie reviews
         @type reviews: list of (string, list) tuples corresponding to (label, content)
+        @param verbose: whether to print statements
+        @type verbose: bool
         """
         # TODO Q1
+        
+        # Keep a record of words with zero probability, and those which did not appear in training
+        zero_prob_words = set()
+        words_not_in_training = set()
+
         for label, review in reviews:
             log_likelihood = {
                 SENTIMENTS.pos.review_label: np.log(self.prior[SENTIMENTS.pos.review_label]),
                 SENTIMENTS.neg.review_label: np.log(self.prior[SENTIMENTS.neg.review_label])
             }
 
-            for word, _ in review:
+            review_tokens = self.extractReviewTokens(review)
+            review_words = [tuple(word for word, _ in token) for token in review_tokens]
+
+            for word in review_words:
                 for test_sentiment in [SENTIMENTS.pos.review_label, SENTIMENTS.neg.review_label]:
-                    log_likelihood[test_sentiment] += np.log(self.condProb[test_sentiment].get(word, 1))
+                    if word in self.condProb[test_sentiment]:
+                        # Look-up the word probability calculated during training
+                        # In the non-smoothing case this could be zero, which will raise a numpy warning when we take the log
+                        word_prob = self.condProb[test_sentiment][word]
+                        log_word_prob = np.log(word_prob)
+
+                        if not word_prob > 0:
+                            # Should only have zero probability words for non-smoothed run
+                            # Exception thrown below if we have any such words during smoothed run
+                            zero_prob_words.add(word)
+                    else:
+                        # If there is an unknown word in the test data then we should ignore it
+                        # Ref: Jurafsky, Chapter 4
+                        words_not_in_training.add(word)
+                        log_word_prob = np.log(1)
+                    
+                    log_likelihood[test_sentiment] += log_word_prob
 
             prediction = max(log_likelihood, key=log_likelihood.get)
 
             correct_prediction = CORRECT_CLASSIFICATION if prediction == label else INCORRECT_CLASSIFICATION
             self.predictions.append(correct_prediction)
 
+        if verbose:
+            print(f"Identified {len(zero_prob_words)} with zero probability")
+            print(f"Identified {len(words_not_in_training)} not found in training set")
+
+        if len(zero_prob_words) > 0 and self.smoothing:
+            # We should never have zero probability words when smoothing
+            # Raise an exception if any are present
+            raise Exception(f"Identified the following zero probability words whilst smoothing:\n\n {zero_prob_words}")
 
 
 class SVMText(Evaluation):
