@@ -52,9 +52,15 @@ print("--- classifying reviews using Naive Bayes on held-out test set ---")
 NB=NaiveBayesText(smoothing=False,bigrams=False,trigrams=False,discard_closed_class=False,pos=False)
 NB.train(corpus.train)
 NB.test(corpus.test, verbose=False)
+print(f"Accuracy without smoothing: {NB.getAccuracy():.5f}")
+
+print("--- classifying reviews with NB and smoothing using 10-fold cross-evaluation ---")
+# using previous instantiated object
+NB.crossValidate(corpus)
 # store predictions from classifier
 non_smoothed_preds=NB.predictions
-print(f"Accuracy without smoothing: {NB.getAccuracy():.5f}")
+print(f"Accuracy: {NB.getAccuracy():.5f}")
+print(f"Std. Dev: {NB.getStdDeviation():.5f}")
 
 
 # question 2.0
@@ -62,19 +68,11 @@ print(f"Accuracy without smoothing: {NB.getAccuracy():.5f}")
 NB=NaiveBayesText(smoothing=True,bigrams=False,trigrams=False,discard_closed_class=False,pos=False)
 NB.train(corpus.train)
 NB.test(corpus.test, verbose=False)
-smoothed_preds=NB.predictions
 print(f"Accuracy using smoothing: {NB.getAccuracy():.5f}")
 
 
-# question 2.1
-# see if smoothing significantly improves results
-p_value=signTest.getSignificance(non_smoothed_preds,smoothed_preds)
-significance = "significant" if p_value < 0.05 else "not significant"
-print(f"results using smoothing are {significance} with respect to no smoothing")
-
-
-# question 3.0
-print("--- classifying reviews with NB using 10-fold cross-evaluation ---")
+# question 3.0 - moved this part up so that I could use the predictions from cross-evaluation on Q2.1
+print("--- classifying reviews with NB and smoothing using 10-fold cross-evaluation ---")
 # using previous instantiated object
 NB.crossValidate(corpus)
 # saving this for use later
@@ -83,6 +81,13 @@ num_non_stemmed_features=len(NB.vocabulary)
 smoothed_preds=NB.predictions
 print(f"Accuracy: {NB.getAccuracy():.5f}")
 print(f"Std. Dev: {NB.getStdDeviation():.5f}")
+
+
+# question 2.1
+# see if smoothing significantly improves results
+p_value=signTest.getSignificance(non_smoothed_preds,smoothed_preds)
+significance = "significant" if p_value < 0.05 else "not significant"
+print(f"results using smoothing are {significance} with respect to no smoothing")
 
 
 # # question 4.0
@@ -97,10 +102,11 @@ else:
     with open(stemmed_corpus_pickle, 'wb') as f:
         pickle.dump(stemmed_corpus, f)
 
-print("--- classifying reviews with NB and stemming using 10-fold cross-evaluation ---")
+print("--- classifying reviews with NB, smoothing and stemming using 10-fold cross-evaluation ---")
 NB.crossValidate(stemmed_corpus)
 # saving this for use later
 num_stemmed_features=len(NB.vocabulary)
+# store predictions from classifier
 stemmed_preds=NB.predictions
 print(f"Accuracy: {NB.getAccuracy():.5f}")
 print(f"Std. Dev: {NB.getStdDeviation():.5f}")
@@ -125,13 +131,11 @@ print("--- classifying reviews using Naive Bayes using smoothing with bigrams an
 NB=NaiveBayesText(smoothing=True,bigrams=True,trigrams=False,discard_closed_class=False,pos=False)
 NB.train(corpus.train)
 NB.test(corpus.test, verbose=False)
-smoothed_preds=NB.predictions
 print(f"Accuracy using smoothing and bigrams: {NB.getAccuracy():.5f}")
 
 NB=NaiveBayesText(smoothing=True,bigrams=True,trigrams=True,discard_closed_class=False,pos=False)
 NB.train(corpus.train)
 NB.test(corpus.test, verbose=False)
-smoothed_preds=NB.predictions
 print(f"Accuracy using smoothing and bigrams and trigrams: {NB.getAccuracy():.5f}")
 
 # cross-validate model using smoothing and bigrams
@@ -140,6 +144,7 @@ NB=NaiveBayesText(smoothing=True,bigrams=True,trigrams=False,discard_closed_clas
 NB.crossValidate(corpus)
 # saving this for use later
 num_bigrams_features=len(NB.vocabulary)
+# store predictions from classifier
 smoothed_and_bigram_preds=NB.predictions
 print(f"Accuracy: {NB.getAccuracy():.5f}") 
 print(f"Std. Dev: {NB.getStdDeviation():.5f}")
@@ -155,6 +160,7 @@ NB=NaiveBayesText(smoothing=True,bigrams=True,trigrams=True,discard_closed_class
 NB.crossValidate(corpus)
 # saving this for use later
 num_trigrams_features=len(NB.vocabulary)
+# store predictions from classifier
 smoothed_and_trigram_preds=NB.predictions
 print(f"Accuracy: {NB.getAccuracy():.5f}") 
 print(f"Std. Dev: {NB.getStdDeviation():.5f}")
@@ -179,8 +185,6 @@ print("--- classifying reviews using SVM on held-out test set ---")
 SVM=SVMText(bigrams=False,trigrams=False,discard_closed_class=False,pos=False)
 SVM.train(corpus.train)
 SVM.test(corpus.test)
-# store predictions from classifier
-svm_preds=SVM.predictions
 print(f"Accuracy with SVM using unigrams: {SVM.getAccuracy():.5f}")
 
 # SVM=SVMText(bigrams=True,trigrams=False,discard_closed_class=False,pos=False)
@@ -196,7 +200,7 @@ print(f"Accuracy with SVM using unigrams: {SVM.getAccuracy():.5f}")
 print("--- classifying reviews using SVM with unigrams and 10-fold cross-eval ---")
 SVM=SVMText(bigrams=False,trigrams=False,discard_closed_class=False,pos=False)
 SVM.crossValidate(corpus)
-# saving this for use later
+# store predictions from classifier
 svm_preds=SVM.predictions
 print(f"Accuracy: {SVM.getAccuracy():.5f}") 
 print(f"Std. Dev: {SVM.getStdDeviation():.5f}")
@@ -229,7 +233,7 @@ print(f"Accuracy with SVM with POS: {SVM.getAccuracy():.5f}")
 print("--- classifying reviews using svm on word+pos and 10-fold cross-eval ---")
 SVM=SVMText(bigrams=False,trigrams=False,discard_closed_class=False,pos=True)
 SVM.crossValidate(corpus)
-# saving this for use later
+# store predictions from classifier
 svm_pos_preds=SVM.predictions
 print(f"Accuracy: {SVM.getAccuracy():.5f}") 
 print(f"Std. Dev: {SVM.getStdDeviation():.5f}")
@@ -259,7 +263,7 @@ print(f"Accuracy with SVM discarding closed-class word: {SVM.getAccuracy():.5f}"
 print("--- classifying reviews using svm discarding closed-class words and 10-fold cross-eval ---")
 SVM=SVMText(bigrams=False,trigrams=False,discard_closed_class=True,pos=False)
 SVM.crossValidate(corpus)
-# saving this for use later
+# store predictions from classifier
 svm_closed_class=SVM.predictions
 print(f"Accuracy: {SVM.getAccuracy():.5f}") 
 print(f"Std. Dev: {SVM.getStdDeviation():.5f}")
