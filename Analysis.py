@@ -7,7 +7,7 @@ class Evaluation():
     """
     general evaluation class implemented by classifiers
     """
-    def crossValidate(self,corpus: MovieReviewCorpus):
+    def crossValidate(self, corpus: MovieReviewCorpus, verbose: bool = False):
         """
         function to perform 10-fold cross-validation for a classifier.
         each classifier will be inheriting from the evaluation class so you will have access
@@ -33,15 +33,19 @@ class Evaluation():
         for _ in range(num_folds):
             # Set the test_files
             test_fold = next(cycle_folds)
-            print(f'Test fold: {test_fold}')
             test_files = corpus.folds[test_fold]
+
+            if verbose:
+                print(f'Test fold: {test_fold}')
 
             # Set the train_files
             train_files = []
             for _ in range(num_folds-1):
                 train_fold = next(cycle_folds)
-                print(f'Train fold: {train_fold}')
                 train_files.extend(corpus.folds[train_fold])
+
+                if verbose:
+                    print(f'Train fold: {train_fold}')
             
             # Perform training and testing
             self.train(train_files)
