@@ -71,6 +71,7 @@ use_d2v_pickle = True
 d2v_pickle_name = 'doc2vec_model.pkl'
 
 if use_d2v_pickle and os.path.isfile(d2v_pickle_name):
+    logger.info('Loading pickled d2v model')
     with open(d2v_pickle_name, 'rb') as f:
         d2v = pickle.load(f)
 else:
@@ -93,6 +94,7 @@ use_embeddings_pickle = True
 embeddings_pickle_name = 'doc2vec_embeddings.pkl'
 
 if use_embeddings_pickle and os.path.isfile(embeddings_pickle_name):
+    logger.info('Loading pickled embeddings')
     with open(embeddings_pickle_name, 'rb') as f:
         embeddings = pickle.load(f)
 else:
@@ -125,18 +127,23 @@ y_test = np.array([
     *[SENTIMENTS.neg.review_label]*len(embeddings[TESTING_DATA][SENTIMENTS.neg.review_label])
 ])
 
+logger.info('Training SVM with embeddings')
 svm = SVMSklearn()
 svm.train(X_train, y_train)
+
+logger.info('Testing SVM with embeddings')
 svm.cross_validate(X_train,y_train)
 svm.test(X_train, y_train)
 svm.test(X_test, y_test)
 
+logger.info('Training T-SNE model')
 X = np.vstack((X_train, X_test))
 tsne = TSNESklearn()
 tsne_results = tsne.fit_transform(X)
 tsne_df = pd.DataFrame({
     'tsne-2d-one': tsne_results[:,0],
-    'tsne-2d-two': tsne_results[:,1]
+    'tsne-2d-two': tsne_results[:,1],
+    'y': np.vstack((y_train, y_test))
 })
 
 plt.figure(figsize=(16,10))

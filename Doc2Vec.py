@@ -126,5 +126,5 @@ class TSNESklearn:
         self._model = None
 
     def fit_transform(self, X):
-        self._model = TSNE(n_components=2, learning_rate='auto',init='random')
+        self._model = TSNE(n_components=2, learning_rate='auto', init='random')
         return self._model.fit_transform(X)
