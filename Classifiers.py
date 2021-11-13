@@ -1,3 +1,4 @@
+from scipy.sparse import data, csr_matrix
 from Analysis import Evaluation
 from Constants import SENTIMENTS, CORRECT_CLASSIFICATION, INCORRECT_CLASSIFICATION
 
@@ -5,6 +6,14 @@ from collections import Counter
 from nltk.util import ngrams
 import numpy as np
 from sklearn import svm
+
+# Sklearn implementation libraries
+import os
+from sklearn.pipeline import Pipeline
+from sklearn.model_selection import train_test_split, cross_val_score
+from sklearn.datasets import load_files
+from sklearn.feature_extraction.text import CountVectorizer, TfidfTransformer
+from sklearn.svm import SVC
 
 class NaiveBayesText(Evaluation):
     def __init__(self,smoothing,bigrams,trigrams,discard_closed_class,pos):
@@ -105,8 +114,8 @@ class NaiveBayesText(Evaluation):
         laplacian_k = 0
         if self.smoothing:
             laplacian_k = 1
-            total_pos_count += laplacian_k*len(self.vocabulary)
-            total_neg_count += laplacian_k*len(self.vocabulary)
+            total_pos_count += laplacian_k*len(initial_frequencies)
+            total_neg_count += laplacian_k*len(initial_frequencies)
 
         self.condProb = {
             SENTIMENTS.pos.review_label: {
@@ -248,19 +257,13 @@ class NaiveBayesText(Evaluation):
 class SVMText(Evaluation):
     def __init__(self,bigrams,trigrams,discard_closed_class,pos):
         """
-        initialisation of SVMText object
+        Initialisation of SVMText object
 
         @param bigrams: add bigrams?
         @type bigrams: boolean
 
         @param trigrams: add trigrams?
         @type trigrams: boolean
-
-        @param svmlight_dir: location of smvlight binaries
-        @type svmlight_dir: string
-
-        @param svmlight_dir: location of smvlight binaries
-        @type svmlight_dir: string
 
         @param discard_closed_class: restrict unigrams to nouns, adjectives, adverbs and verbs?
         @type discard_closed_class: boolean
@@ -329,7 +332,10 @@ class SVMText(Evaluation):
             if word not in self.vocabulary and testing:
                 continue
             word_freq_array[self.vocabulary[word]] = freq
-        return word_freq_array
+        
+        # Convert word counts to word frequencies
+        doc_length = len(review_words)
+        return word_freq_array/doc_length
 
     def getFeatures(self,reviews):
         """
@@ -354,6 +360,9 @@ class SVMText(Evaluation):
             sentiment, review = r_entry
             self.input_features[i,:] = self.extractReviewFeatures(review)
             self.labels.append(sentiment)
+
+        # Achieve faster processing using sparse matrix
+        self.input_features = csr_matrix(self.input_features)
 
     def train(self,reviews):
         """
@@ -384,8 +393,59 @@ class SVMText(Evaluation):
         # TODO Q6.1
         for label, review in reviews:
             review_features = self.extractReviewFeatures(review, testing=True)
+            review_features = csr_matrix(review_features)
             
-            prediction = self.svm_classifier.predict([review_features])
+            prediction = self.svm_classifier.predict(review_features)
 
             correct_prediction = CORRECT_CLASSIFICATION if prediction == label else INCORRECT_CLASSIFICATION
             self.predictions.append(correct_prediction)
+
+
+class SVMSklearn(Evaluation):
+    def __init__(self,bigrams,trigrams,discard_closed_class,pos):
+        """
+        SKlearn version of SVM implementation
+
+        @param bigrams: add bigrams?
+        @type bigrams: boolean
+
+        @param trigrams: add trigrams?
+        @type trigrams: boolean
+
+        @param discard_closed_class: restrict unigrams to nouns, adjectives, adverbs and verbs?
+        @type discard_closed_class: boolean
+
+        @param pos: use POS information?
+        @type pos: boolean
+        """
+        self._dataset={}
+        self._pipeline=None
+        # add in bigrams?
+        self.bigrams=bigrams
+        # add in trigrams?
+        self.trigrams=trigrams
+        # restrict to nouns, adjectives, adverbs and verbs?
+        self.discard_closed_class=discard_closed_class
+        # use POS information?
+        self.pos = pos
+
+    @property
+    def dataset(self):
+        if not self._dataset:
+            self._dataset = load_files(os.path.join('data', 'reviews'), load_content=True, encoding='utf-8')
+        return self._dataset
+
+    def train(self):
+        self._pipeline = Pipeline([
+            ('vect', CountVectorizer()),
+            ('tfidf', TfidfTransformer()),
+            ('svc', SVC()),
+        ])
+        self._pipeline.fit(self.dataset.data, self.dataset.target)
+
+    def test(self):
+        # preds = self._pipeline.predict(self.dataset.data)
+        # print(np.mean(preds == self._dataset.target))
+
+        scores = cross_val_score(self._pipeline, self.dataset.data, self.dataset.target, cv=5)
+        print(scores)

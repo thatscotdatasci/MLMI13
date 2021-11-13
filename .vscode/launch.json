@@ -1,12 +1,19 @@
 {
-    "version": "0.2.0",
-    "configurations": [
-        {
-            "name": "Python: run.py",
-            "type": "python",
-            "request": "launch",
-            "program": "run.py",
-            "console": "integratedTerminal"
-        }
-    ]
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Python: run_doc2vec",
+      "type": "python",
+      "request": "launch",
+      "program": "run_doc2vec.py",
+      "console": "integratedTerminal"
+    },
+    {
+      "name": "Python: practical.py",
+      "type": "python",
+      "request": "launch",
+      "program": "practical.py",
+      "console": "integratedTerminal"
+    }
+  ]
 }

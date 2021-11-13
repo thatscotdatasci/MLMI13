@@ -18,3 +18,6 @@ INCORRECT_CLASSIFICATION = "-"
 
 REVIEWS_BASEDIR = "data/reviews"
 REVIEWS_IGNORE_TAGS = {"\n",}
+
+TRAINING_DATA = "train"
+TESTING_DATA = "test"
