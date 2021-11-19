@@ -1,3 +1,4 @@
+from inspect import Attribute
 import os
 from collections import Counter
 
@@ -7,19 +8,33 @@ from sklearn.svm import SVC
 from sklearn.manifold import TSNE
 from sklearn.pipeline import Pipeline
 from sklearn.base import BaseEstimator, TransformerMixin
-from sklearn.model_selection import cross_val_score
+from sklearn.model_selection import cross_val_score, GridSearchCV
 
 from Constants import SENTIMENTS, TRAINING_DATA, TESTING_DATA
 
 class Doc2Vec(BaseEstimator, TransformerMixin):
 
-    def __init__(self, d2v_training_files: list = [], vector_size: int = 50, min_count: int = 2, epochs: int = 1):
+    def __init__(
+        self,
+        d2v_training_files: list = [],
+        dm: int = 1,
+        window: int = 3,
+        dbow_words: int = 1,
+        vector_size: int = 50,
+        min_count: int = 2,
+        epochs: int = 1
+    ):
         self.d2v_training_files = d2v_training_files
 
+        # Doc2Vec settings
+        self.dm = dm
+        self.window = window
+        self.dbow_words = dbow_words
         self.vector_size = vector_size
         self.min_count = min_count
         self.epochs = epochs
 
+        # Parameter initialisation
         self.train_corpus = []
         self.test_corpus = []
         self.model = None
@@ -33,10 +48,12 @@ class Doc2Vec(BaseEstimator, TransformerMixin):
         :type testing_files: list, optional
         """
         # Load the training data
+        self.train_corpus = []
         for f in training_files:
             self.train_corpus.append(self.read_corpus(f, os.path.basename(f)))
 
         # Load the test data - if provided
+        self.test_corpus = []
         for f in testing_files:
             self.test_corpus.append(self.read_corpus(f))
 
@@ -61,7 +78,15 @@ class Doc2Vec(BaseEstimator, TransformerMixin):
         """
         Train the Doc2Vec model
         """
-        self.model = gensim.models.doc2vec.Doc2Vec(vector_size=self.vector_size, min_count=self.min_count, epochs=self.epochs, workers=32)
+        self.model = gensim.models.doc2vec.Doc2Vec(
+            dm=self.dm,
+            window=self.window,
+            dbow_words=self.dbow_words,
+            vector_size=self.vector_size,
+            min_count=self.min_count,
+            epochs=self.epochs,
+            workers=8
+        )
         self.model.build_vocab(self.train_corpus)
         self.model.train(self.train_corpus, total_examples=self.model.corpus_count, epochs=self.model.epochs)
 
@@ -143,18 +168,6 @@ class SVMSklearn:
     def __init__(self):
         """
         SKlearn version of SVM implementation
-
-        @param bigrams: add bigrams?
-        @type bigrams: boolean
-
-        @param trigrams: add trigrams?
-        @type trigrams: boolean
-
-        @param discard_closed_class: restrict unigrams to nouns, adjectives, adverbs and verbs?
-        @type discard_closed_class: boolean
-
-        @param pos: use POS information?
-        @type pos: boolean
         """
         self._model=None
 
@@ -172,14 +185,42 @@ class SVMSklearn:
         print(scores)
 
 class GensimSVMSklearn:
-    def __init__(self, gensim_training_files):
-        self.gensim_training_files=gensim_training_files
+    def __init__(
+        self,
+        d2v_training_files: list,
+        dm: int = 1,
+        window: int = 3,
+        dbow_words: int = 1,
+        vector_size: int = 50,
+        min_count: int = 2,
+        epochs: int = 1
+    ):
+        self.d2v_training_files = d2v_training_files
+
+        # Doc2Vec settings
+        self.dm = dm
+        self.window = window
+        self.dbow_words = dbow_words
+        self.vector_size = vector_size
+        self.min_count = min_count
+        self.epochs = epochs
+
+    @property
+    def _pipeline(self):
+        return Pipeline([
+            ('doc2vec', Doc2Vec(
+                d2v_training_files=self.d2v_training_files,
+                dm = self.dm,
+                window = self.window,
+                dbow_words = self.dbow_words,
+                vector_size = self.vector_size,
+                min_count = self.min_count,
+                epochs = self.epochs,
+            )),
+            ('svc', SVC(verbose=True)),
+        ])
 
     def train(self, X, y):
-        self._pipeline = Pipeline([
-            ('gensim', Doc2Vec(d2v_training_files=self.gensim_training_files)),
-            ('svc', SVC()),
-        ])
         self._pipeline.fit(X, y)
 
     def test(self, X, y):
@@ -189,6 +230,10 @@ class GensimSVMSklearn:
     def cross_validate(self, X, y, folds: int = 3):
         scores = cross_val_score(self._pipeline, X, y, cv=folds)
         print(scores)
+
+    def grid_search(self, X, y, params: dict):
+        self.gs = GridSearchCV(self._pipeline, params, n_jobs=-1)
+        self.gs.fit(X, y) 
 
 class TSNESklearn:
     def __init__(self):
