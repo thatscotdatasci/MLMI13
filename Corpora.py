@@ -9,7 +9,7 @@ from nltk.stem.porter import PorterStemmer
 
 class MovieReviewCorpus():
     
-    def __init__(self, stemming: bool = False, pos: bool = True, review: str = None):
+    def __init__(self, stemming: bool = False, pos: bool = False, review: str = None):
         """
         Initialisation of movie review corpus.
 
@@ -35,6 +35,8 @@ class MovieReviewCorpus():
         self.failed=[]
         # Use porter's stemming
         self.stemming = stemming
+        # Keep POS
+        self.pos = pos
         # porter stemmer
         self.stemmer=PorterStemmer() if stemming else None
         # import movie reviews
@@ -71,7 +73,11 @@ class MovieReviewCorpus():
             token = self.stemmer.stem(word)
         else:
             token = word.lower()
-        return True, (token, pos_tag)
+
+        if self.pos:
+            return True, (token, pos_tag)
+        else:
+            return True, token
     
     def _process_tag_file(self, filepath: str) -> Tuple[list, list]:
         """

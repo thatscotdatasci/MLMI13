@@ -50,9 +50,8 @@ class SentimentLexicon(Evaluation):
             polarity_sum = 0
             review_breakdown = []
 
-            for entry in content:
-                token, _ = entry
-                lexicon_record = self.lexicon.get(token)
+            for word in content:
+                lexicon_record = self.lexicon.get(word)
                 
                 if lexicon_record:
                     magnitude_info, polarity_info = lexicon_record
@@ -69,8 +68,8 @@ class SentimentLexicon(Evaluation):
                     magnitude_val = sign*POLARITIES.weak.lexicon_value if magnitude_info == POLARITIES.weak.lexicon_label else sign*POLARITIES.strong.lexicon_value
                     magnitude_sum += magnitude_val
 
-                    review_breakdown.append((entry, magnitude_info, polarity_info, sign, magnitude_val))
-                    continue
+                    review_breakdown.append((word, magnitude_info, polarity_info, sign, magnitude_val))
+
             self.breakdowns.append(review_breakdown)
 
             score = magnitude_sum if magnitude else polarity_sum

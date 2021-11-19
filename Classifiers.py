@@ -16,7 +16,7 @@ from sklearn.feature_extraction.text import CountVectorizer, TfidfTransformer
 from sklearn.svm import SVC
 
 class NaiveBayesText(Evaluation):
-    def __init__(self,smoothing,bigrams,trigrams,discard_closed_class,pos):
+    def __init__(self,smoothing,bigrams,trigrams,discard_closed_class):
         """
         initialisation of NaiveBayesText classifier.
 
@@ -31,9 +31,6 @@ class NaiveBayesText(Evaluation):
 
         @param discard_closed_class: restrict unigrams to nouns, adjectives, adverbs and verbs?
         @type discard_closed_class: boolean
-
-        @param pos: use POS information?
-        @type pos: boolean
         """
         # set of features for classifier
         self.vocabulary=set()
@@ -49,18 +46,8 @@ class NaiveBayesText(Evaluation):
         self.trigrams=trigrams
         # restrict unigrams to nouns, adjectives, adverbs and verbs?
         self.discard_closed_class=discard_closed_class
-        # use POS information?
-        self.pos = pos
         # stored predictions from test instances
         self.predictions=[]
-
-
-    def getReviewWords(self,review_tokens):
-        if self.pos:
-            review_words = review_tokens
-        else:
-            review_words = [tuple(word for word, _ in token) for token in review_tokens]
-        return review_words
 
 
     def getPrior(self, reviews):
@@ -73,8 +60,11 @@ class NaiveBayesText(Evaluation):
         @param reviews: movie reviews
         @type reviews: list of (string, list) tuples corresponding to (label, content)
         """
+        self.prior = {}
+        
         pos_count = 0
         neg_count = 0
+
         for sentiment, _ in reviews:
             if sentiment == SENTIMENTS.pos.review_label:
                 pos_count += 1
@@ -82,6 +72,7 @@ class NaiveBayesText(Evaluation):
                 neg_count += 1
             else:
                 raise Exception("Found a review that this neither positive nor negative")
+        
         self.prior = {
             SENTIMENTS.pos.review_label: pos_count/len(reviews),
             SENTIMENTS.neg.review_label: neg_count/len(reviews),
@@ -95,8 +86,10 @@ class NaiveBayesText(Evaluation):
         @param reviews: movie reviews
         @type reviews: list of (string, list) tuples corresponding to (label, content)
         """
-        vocab_words = self.getReviewWords(self.vocabulary)
-        initial_frequencies = {word: 0 for word in vocab_words}
+        self.condProb = {}
+
+        initial_frequencies = {word: 0 for word in self.vocabulary}
+
         word_frequencies = {
             SENTIMENTS.pos.review_label: initial_frequencies.copy(),
             SENTIMENTS.neg.review_label: initial_frequencies.copy(),
@@ -104,8 +97,7 @@ class NaiveBayesText(Evaluation):
     
         for sentiment, review in reviews:
             review_tokens = self.extractReviewTokens(review)
-            review_words = self.getReviewWords(review_tokens)
-            for words in review_words:
+            for words in review_tokens:
                 word_frequencies[sentiment][words] += 1
 
         total_pos_count = sum(word_frequencies[SENTIMENTS.pos.review_label].values())
@@ -114,8 +106,8 @@ class NaiveBayesText(Evaluation):
         laplacian_k = 0
         if self.smoothing:
             laplacian_k = 1
-            total_pos_count += laplacian_k*len(initial_frequencies)
-            total_neg_count += laplacian_k*len(initial_frequencies)
+            total_pos_count += laplacian_k*len(self.vocabulary)
+            total_neg_count += laplacian_k*len(self.vocabulary)
 
         self.condProb = {
             SENTIMENTS.pos.review_label: {
@@ -126,7 +118,6 @@ class NaiveBayesText(Evaluation):
             },
         }
 
-
     def extractVocabulary(self,reviews):
         """
         extract features from training data and store in self.vocabulary.
@@ -134,9 +125,9 @@ class NaiveBayesText(Evaluation):
         @param reviews: movie reviews
         @type reviews: list of (string, list) tuples corresponding to (label, content)
         """
-        for _, review in reviews:
-            for token in self.extractReviewTokens(review):
-                self.vocabulary.add(token)
+        self.vocabulary = set()
+        for _, content in reviews:
+            self.vocabulary.update(self.extractReviewTokens(content))
 
     def extractReviewTokens(self,review):
         """
@@ -150,7 +141,7 @@ class NaiveBayesText(Evaluation):
         text=[]
         for token in review:
             # check if pos tags are included in review e.g. ("bad","JJ")
-            if len(token)==2 and self.discard_closed_class:
+            if type(token) is tuple and self.discard_closed_class:
                 if token[1][0:2] in ["NN","JJ","RB","VB"]: text.append((token,))
             else:
                 # Return unigrams as single element tuple to match ngrams
@@ -184,13 +175,8 @@ class NaiveBayesText(Evaluation):
         """
         # TODO Q1
         # TODO Q2 (use switch for smoothing from self.smoothing)
-        self.vocabulary = set()
         self.extractVocabulary(reviews)
-
-        self.prior = {}
         self.getPrior(reviews)
-
-        self.condProb = {}
         self.getCondProb(reviews)
 
 
@@ -217,9 +203,7 @@ class NaiveBayesText(Evaluation):
             }
 
             review_tokens = self.extractReviewTokens(review)
-            review_words = self.getReviewWords(review_tokens)
-
-            for word in review_words:
+            for word in review_tokens:
                 for test_sentiment in [SENTIMENTS.pos.review_label, SENTIMENTS.neg.review_label]:
                     if word in self.condProb[test_sentiment]:
                         # Look-up the word probability calculated during training
@@ -255,7 +239,7 @@ class NaiveBayesText(Evaluation):
 
 
 class SVMText(Evaluation):
-    def __init__(self,bigrams,trigrams,discard_closed_class,pos):
+    def __init__(self,bigrams,trigrams,discard_closed_class):
         """
         Initialisation of SVMText object
 
@@ -267,9 +251,6 @@ class SVMText(Evaluation):
 
         @param discard_closed_class: restrict unigrams to nouns, adjectives, adverbs and verbs?
         @type discard_closed_class: boolean
-
-        @param pos: use POS information?
-        @type pos: boolean
         """
         self.svm_classifier = svm.SVC()
         self.predictions=[]
@@ -280,22 +261,11 @@ class SVMText(Evaluation):
         self.trigrams=trigrams
         # restrict to nouns, adjectives, adverbs and verbs?
         self.discard_closed_class=discard_closed_class
-        # use POS information?
-        self.pos = pos
-
-    def getReviewWords(self,review_tokens):
-        if self.pos:
-            review_words = review_tokens
-        else:
-            review_words = [tuple(word for word, _ in token) for token in review_tokens]
-        return review_words
 
     def extractVocabulary(self,reviews):
         review_entries = set()
         for _, review in reviews:
-            review_tokens = self.extractReviewTokens(review)
-            review_words = self.getReviewWords(review_tokens)
-            review_entries.update(review_words)
+            review_entries.update(self.extractReviewTokens(review))
         self.vocabulary = {val: i for i, val in enumerate(review_entries)}
 
     def extractReviewTokens(self,review):
@@ -310,7 +280,7 @@ class SVMText(Evaluation):
         text=[]
         for term in review:
             # check if pos tags are included in review e.g. ("bad","JJ")
-            if len(term)==2 and self.discard_closed_class:
+            if type(term) is tuple and self.discard_closed_class:
                 if term[1][0:2] in ["NN","JJ","RB","VB"]: text.append((term,))
             else:
                 # Return unigrams as single element tuple to match ngrams
@@ -323,19 +293,16 @@ class SVMText(Evaluation):
 
     def extractReviewFeatures(self, review, testing: bool = False):
         review_tokens = self.extractReviewTokens(review)
-        review_words = self.getReviewWords(review_tokens)
 
-        word_frequencies = Counter(review_words)
+        word_counts = Counter(review_tokens)
 
-        word_freq_array = np.zeros(len(self.vocabulary))
-        for word, freq in word_frequencies.items():
+        word_count_array = np.zeros(len(self.vocabulary))
+        for word, count in word_counts.items():
             if word not in self.vocabulary and testing:
                 continue
-            word_freq_array[self.vocabulary[word]] = freq
-        
-        # Convert word counts to word frequencies
-        doc_length = len(review_words)
-        return word_freq_array/doc_length
+            word_count_array[self.vocabulary[word]] = count
+
+        return word_count_array, set(review_tokens)
 
     def getFeatures(self,reviews):
         """
@@ -351,15 +318,25 @@ class SVMText(Evaluation):
         @type reviews: list of (string, list) tuples corresponding to (label, content)
         """
 
-        self.input_features = np.zeros((len(reviews), len(self.vocabulary)))
+        word_frequencies = np.zeros((len(reviews), len(self.vocabulary)))
+        document_frequency = np.zeros(len(self.vocabulary))
         self.labels = []
 
         # TODO Q6.
 
         for i, r_entry in enumerate(reviews):
             sentiment, review = r_entry
-            self.input_features[i,:] = self.extractReviewFeatures(review)
+            word_count_array, review_words = self.extractReviewFeatures(review)
+            word_frequencies[i,:] = word_count_array/len(review_words)
+            for w in review_words:
+                document_frequency[self.vocabulary[w]] += 1
             self.labels.append(sentiment)
+        
+        self.inverse_document_frequency = np.log((len(reviews)/document_frequency))
+
+        un_norm_tf_idf = np.multiply(word_frequencies, self.inverse_document_frequency)
+        un_norm_tf_idf_norms = np.linalg.norm(un_norm_tf_idf, axis=1)
+        self.input_features =  np.divide(un_norm_tf_idf,un_norm_tf_idf_norms[:, None])
 
         # Achieve faster processing using sparse matrix
         self.input_features = csr_matrix(self.input_features)
@@ -382,7 +359,7 @@ class SVMText(Evaluation):
         self.svm_classifier = svm.SVC()
         self.svm_classifier.fit(self.input_features, self.labels)
 
-    def test(self,reviews):
+    def test(self, reviews):
         """
         test svm
 
@@ -392,8 +369,9 @@ class SVMText(Evaluation):
 
         # TODO Q6.1
         for label, review in reviews:
-            review_features = self.extractReviewFeatures(review, testing=True)
-            review_features = csr_matrix(review_features)
+            word_count_array, review_words = self.extractReviewFeatures(review, testing=True)
+            un_norm_tf_idf = np.multiply(word_count_array/len(review_words), self.inverse_document_frequency)
+            review_features = csr_matrix(un_norm_tf_idf/np.linalg.norm(un_norm_tf_idf))
             
             prediction = self.svm_classifier.predict(review_features)
 
@@ -437,7 +415,7 @@ class SVMSklearn(Evaluation):
 
     def train(self):
         self._pipeline = Pipeline([
-            ('vect', CountVectorizer()),
+            ('vect', CountVectorizer(ngram_range=(1, 1))),
             ('tfidf', TfidfTransformer()),
             ('svc', SVC()),
         ])
