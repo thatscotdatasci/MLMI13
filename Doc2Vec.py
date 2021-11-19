@@ -22,7 +22,8 @@ class Doc2Vec(BaseEstimator, TransformerMixin):
         dbow_words: int = 1,
         vector_size: int = 50,
         min_count: int = 2,
-        epochs: int = 1
+        epochs: int = 1,
+        workers: int = 4
     ):
         self.d2v_training_files = d2v_training_files
 
@@ -33,6 +34,7 @@ class Doc2Vec(BaseEstimator, TransformerMixin):
         self.vector_size = vector_size
         self.min_count = min_count
         self.epochs = epochs
+        self.workers = workers
 
         # Parameter initialisation
         self.train_corpus = []
@@ -85,7 +87,7 @@ class Doc2Vec(BaseEstimator, TransformerMixin):
             vector_size=self.vector_size,
             min_count=self.min_count,
             epochs=self.epochs,
-            workers=8
+            workers=self.workers
         )
         self.model.build_vocab(self.train_corpus)
         self.model.train(self.train_corpus, total_examples=self.model.corpus_count, epochs=self.model.epochs)
@@ -180,59 +182,67 @@ class SVMSklearn:
         print(np.mean(preds == y))
 
 
-    def cross_validate(self, X, y):
-        scores = cross_val_score(self._model, X, y, cv=3)
+    def cross_validate(self, X, y, folds=3):
+        scores = cross_val_score(self._model, X, y, cv=folds)
         print(scores)
 
 class GensimSVMSklearn:
     def __init__(
         self,
         d2v_training_files: list,
-        dm: int = 1,
-        window: int = 3,
-        dbow_words: int = 1,
-        vector_size: int = 50,
-        min_count: int = 2,
-        epochs: int = 1
+        d2v_dm: int = 1,
+        d2v_window: int = 3,
+        d2v_dbow_words: int = 1,
+        d2v_vector_size: int = 50,
+        d2v_min_count: int = 2,
+        d2v_epochs: int = 1,
+        verbose: bool = False
     ):
         self.d2v_training_files = d2v_training_files
 
+        # General settings
+        self.verbose = verbose
+
         # Doc2Vec settings
-        self.dm = dm
-        self.window = window
-        self.dbow_words = dbow_words
-        self.vector_size = vector_size
-        self.min_count = min_count
-        self.epochs = epochs
+        self.d2v_dm = d2v_dm
+        self.d2v_window = d2v_window
+        self.d2v_dbow_words = d2v_dbow_words
+        self.d2v_vector_size = d2v_vector_size
+        self.d2v_min_count = d2v_min_count
+        self.d2v_epochs = d2v_epochs
+
+        self._pipeline = None
 
     @property
-    def _pipeline(self):
-        return Pipeline([
-            ('doc2vec', Doc2Vec(
-                d2v_training_files=self.d2v_training_files,
-                dm = self.dm,
-                window = self.window,
-                dbow_words = self.dbow_words,
-                vector_size = self.vector_size,
-                min_count = self.min_count,
-                epochs = self.epochs,
-            )),
-            ('svc', SVC(verbose=True)),
-        ])
+    def pipeline(self):
+        if self._pipeline is None:
+            self._pipeline = Pipeline([
+                ('doc2vec', Doc2Vec(
+                    d2v_training_files=self.d2v_training_files,
+                    dm = self.d2v_dm,
+                    window = self.d2v_window,
+                    dbow_words = self.d2v_dbow_words,
+                    vector_size = self.d2v_vector_size,
+                    min_count = self.d2v_min_count,
+                    epochs = self.d2v_epochs,
+                )),
+                ('svc', SVC(verbose=self.verbose)),
+            ])
+        return self._pipeline
 
     def train(self, X, y):
-        self._pipeline.fit(X, y)
+        self.pipeline.fit(X, y)
 
     def test(self, X, y):
-        preds = self._pipeline.predict(X)
+        preds = self.pipeline.predict(X)
         print(np.mean(preds == y))
 
     def cross_validate(self, X, y, folds: int = 3):
-        scores = cross_val_score(self._pipeline, X, y, cv=folds)
+        scores = cross_val_score(self.pipeline, X, y, cv=folds)
         print(scores)
 
     def grid_search(self, X, y, params: dict):
-        self.gs = GridSearchCV(self._pipeline, params, n_jobs=-1)
+        self.gs = GridSearchCV(self.pipeline, params, n_jobs=-1)
         self.gs.fit(X, y) 
 
 class TSNESklearn:
