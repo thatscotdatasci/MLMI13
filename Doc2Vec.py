@@ -16,24 +16,28 @@ class Doc2Vec(BaseEstimator, TransformerMixin):
 
     def __init__(
         self,
-        d2v_training_files: list = [],
+        training_files: list = [],
         dm: int = 1,
-        window: int = 3,
-        dbow_words: int = 1,
-        vector_size: int = 50,
+        dm_concat: int = 0,
+        window: int = 5,
+        dbow_words: int = 0,
+        vector_size: int = 100,
         min_count: int = 2,
-        epochs: int = 1,
+        epochs: int = 10,
+        infer_epochs: int = 1,
         workers: int = 4
     ):
-        self.d2v_training_files = d2v_training_files
+        self.training_files = training_files
 
         # Doc2Vec settings
         self.dm = dm
+        self.dm_concat = dm_concat
         self.window = window
         self.dbow_words = dbow_words
         self.vector_size = vector_size
         self.min_count = min_count
         self.epochs = epochs
+        self.infer_epochs = infer_epochs
         self.workers = workers
 
         # Parameter initialisation
@@ -82,6 +86,7 @@ class Doc2Vec(BaseEstimator, TransformerMixin):
         """
         self.model = gensim.models.doc2vec.Doc2Vec(
             dm=self.dm,
+            dm_concat=self.dm_concat,
             window=self.window,
             dbow_words=self.dbow_words,
             vector_size=self.vector_size,
@@ -120,7 +125,7 @@ class Doc2Vec(BaseEstimator, TransformerMixin):
         :return: current object - as required by sklearn
         :rtype: Doc2Vec
         """
-        self.load_data(self.d2v_training_files, [])
+        self.load_data(self.training_files, [])
         self.train()
         return self
     
@@ -133,7 +138,7 @@ class Doc2Vec(BaseEstimator, TransformerMixin):
         :rtype: np.array
         """
         corpus = (self.read_corpus(f) for f in X)
-        return np.array([self.model.infer_vector(doc) for doc in corpus])
+        return np.array([self.model.infer_vector(doc, epochs=self.infer_epochs) for doc in corpus])
     
 
     def generate_embeddings(self, training_pos_files: list, training_neg_files: list, testing_pos_files: list, testing_neg_files: test, epochs=5):
@@ -191,11 +196,13 @@ class GensimSVMSklearn:
         self,
         d2v_training_files: list,
         d2v_dm: int = 1,
+        d2v_dm_concat: int = 0,
         d2v_window: int = 3,
         d2v_dbow_words: int = 1,
         d2v_vector_size: int = 50,
         d2v_min_count: int = 2,
         d2v_epochs: int = 1,
+        d2v_infer_epochs: int = 1,
         verbose: bool = False
     ):
         self.d2v_training_files = d2v_training_files
@@ -205,11 +212,13 @@ class GensimSVMSklearn:
 
         # Doc2Vec settings
         self.d2v_dm = d2v_dm
+        self.d2v_dm_concat = d2v_dm_concat
         self.d2v_window = d2v_window
         self.d2v_dbow_words = d2v_dbow_words
         self.d2v_vector_size = d2v_vector_size
         self.d2v_min_count = d2v_min_count
         self.d2v_epochs = d2v_epochs
+        self.d2v_infer_epochs = d2v_infer_epochs
 
         self._pipeline = None
 
@@ -218,13 +227,15 @@ class GensimSVMSklearn:
         if self._pipeline is None:
             self._pipeline = Pipeline([
                 ('doc2vec', Doc2Vec(
-                    d2v_training_files=self.d2v_training_files,
+                    training_files=self.d2v_training_files,
                     dm = self.d2v_dm,
+                    dm_concat = self.d2v_dm_concat,
                     window = self.d2v_window,
                     dbow_words = self.d2v_dbow_words,
                     vector_size = self.d2v_vector_size,
                     min_count = self.d2v_min_count,
                     epochs = self.d2v_epochs,
+                    infer_epochs = self.d2v_infer_epochs
                 )),
                 ('svc', SVC(verbose=self.verbose)),
             ])
