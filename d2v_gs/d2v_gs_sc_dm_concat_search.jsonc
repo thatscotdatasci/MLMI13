@@ -1,0 +1,67 @@
+{
+  "original_params": {
+    "doc2vec__epochs": [100],
+    "doc2vec__infer_epochs": [100],
+    "doc2vec__vector_size": [100],
+    "doc2vec__dm": [0],
+    "doc2vec__dm_concat": [0, 1],
+    "doc2vec__dbow_words": [1],
+    "doc2vec__window": [5],
+    "doc2vec__min_count": [5]
+  },
+  "best_params": {
+    "doc2vec__dbow_words": 1,
+    "doc2vec__dm": 0,
+    "doc2vec__dm_concat": 0, // Confirmed as the preferred choice
+    "doc2vec__epochs": 100,
+    "doc2vec__infer_epochs": 100,
+    "doc2vec__min_count": 5,
+    "doc2vec__vector_size": 100,
+    "doc2vec__window": 5
+  },
+  "best_score": 0.9244444444444444,
+  "results": {
+    "mean_fit_time": { "0": 1315.9285575867, "1": 1315.1509384155 },
+    "std_fit_time": { "0": 1.2489203869, "1": 0.5931660018 },
+    "mean_score_time": { "0": 37.1672964573, "1": 37.3506225109 },
+    "std_score_time": { "0": 0.9783014741, "1": 0.750084537 },
+    "param_doc2vec__dbow_words": { "0": 1, "1": 1 },
+    "param_doc2vec__dm": { "0": 0, "1": 0 },
+    "param_doc2vec__dm_concat": { "0": 0, "1": 1 },
+    "param_doc2vec__epochs": { "0": 100, "1": 100 },
+    "param_doc2vec__infer_epochs": { "0": 100, "1": 100 },
+    "param_doc2vec__min_count": { "0": 5, "1": 5 },
+    "param_doc2vec__vector_size": { "0": 100, "1": 100 },
+    "param_doc2vec__window": { "0": 5, "1": 5 },
+    "params": {
+      "0": {
+        "doc2vec__dbow_words": 1,
+        "doc2vec__dm": 0,
+        "doc2vec__dm_concat": 0,
+        "doc2vec__epochs": 100,
+        "doc2vec__infer_epochs": 100,
+        "doc2vec__min_count": 5,
+        "doc2vec__vector_size": 100,
+        "doc2vec__window": 5
+      },
+      "1": {
+        "doc2vec__dbow_words": 1,
+        "doc2vec__dm": 0,
+        "doc2vec__dm_concat": 1,
+        "doc2vec__epochs": 100,
+        "doc2vec__infer_epochs": 100,
+        "doc2vec__min_count": 5,
+        "doc2vec__vector_size": 100,
+        "doc2vec__window": 5
+      }
+    },
+    "split0_test_score": { "0": 0.85, "1": 0.8444444444 },
+    "split1_test_score": { "0": 0.9527777778, "1": 0.9277777778 },
+    "split2_test_score": { "0": 0.9583333333, "1": 0.95 },
+    "split3_test_score": { "0": 0.975, "1": 0.9583333333 },
+    "split4_test_score": { "0": 0.8861111111, "1": 0.8861111111 },
+    "mean_test_score": { "0": 0.9244444444, "1": 0.9133333333 },
+    "std_test_score": { "0": 0.0479969135, "1": 0.0425789028 },
+    "rank_test_score": { "0": 1, "1": 2 }
+  }
+}
