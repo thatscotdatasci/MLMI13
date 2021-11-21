@@ -20,7 +20,7 @@ class SentimentLexicon(Evaluation):
                 lexicon_dict[word] = [magnitude, polarity]
         return lexicon_dict
 
-    def classify(self,reviews,threshold,magnitude):
+    def classify(self, reviews: list,threshold: int,magnitude: bool, weak_polarity: int = None, strong_polarity: int = None):
         """
         classify movie reviews using self.lexicon.
         self.lexicon is a dictionary of word: [polarity_info, magnitude_info], e.g. "bad": ["negative","strongsubj"].
@@ -36,12 +36,24 @@ class SentimentLexicon(Evaluation):
 
         @type magnitude: use magnitude information from self.lexicon?
         @param magnitude: boolean
+
+        @type weak_polarity: numerical value to use for weak polarity words
+        @param weak_polarity: int
+
+        @type strong_polarity: numerical value to use for strong polarity words
+        @param weak_polarity: int
         """
         # reset predictions
         self.predictions=[]
         self.breakdowns = []
         
         # TODO Q0
+
+        # Use the default polarities if values are not passed
+        if weak_polarity is None:
+            weak_polarity = POLARITIES.weak.lexicon_value
+        if strong_polarity is None:
+            strong_polarity = POLARITIES.strong.lexicon_value
 
         for review in reviews:
             label, content = review
@@ -65,7 +77,7 @@ class SentimentLexicon(Evaluation):
                     
                     polarity_sum += sign
 
-                    magnitude_val = sign*POLARITIES.weak.lexicon_value if magnitude_info == POLARITIES.weak.lexicon_label else sign*POLARITIES.strong.lexicon_value
+                    magnitude_val = sign*weak_polarity if magnitude_info == POLARITIES.weak.lexicon_label else sign*strong_polarity
                     magnitude_sum += magnitude_val
 
                     review_breakdown.append((word, magnitude_info, polarity_info, sign, magnitude_val))
