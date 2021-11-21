@@ -170,27 +170,6 @@ class Doc2Vec(BaseEstimator, TransformerMixin):
         
         return embeddings
 
-
-class SVMSklearn:
-    def __init__(self):
-        """
-        SKlearn version of SVM implementation
-        """
-        self._model=None
-
-    def train(self, X, y):
-        self._model = SVC()
-        self._model.fit(X, y)
-
-    def test(self, X, y):
-        preds = self._model.predict(X)
-        print(np.mean(preds == y))
-
-
-    def cross_validate(self, X, y, folds=3):
-        scores = cross_val_score(self._model, X, y, cv=folds)
-        print(scores)
-
 class GensimSVMSklearn:
     def __init__(
         self,
@@ -255,11 +234,3 @@ class GensimSVMSklearn:
     def grid_search(self, X, y, params: dict):
         self.gs = GridSearchCV(self.pipeline, params, n_jobs=-1)
         self.gs.fit(X, y) 
-
-class TSNESklearn:
-    def __init__(self):
-        self._model = None
-
-    def fit_transform(self, X):
-        self._model = TSNE(n_components=2, learning_rate='auto', init='random')
-        return self._model.fit_transform(X)
