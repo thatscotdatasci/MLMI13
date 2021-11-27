@@ -209,6 +209,7 @@ class NaiveBayesText(Evaluation):
         @type verbose: bool
         """
         # TODO Q1
+        np.random.seed(0)
         
         # Keep a record of words with zero probability, and those which did not appear in training
         zero_prob_words = set()
