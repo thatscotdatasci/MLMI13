@@ -16,12 +16,15 @@ from sklearn.feature_extraction.text import CountVectorizer, TfidfTransformer
 from sklearn.svm import SVC
 
 class NaiveBayesText(Evaluation):
-    def __init__(self,smoothing,bigrams,trigrams,discard_closed_class):
+    def __init__(self,smoothing,bigrams,trigrams,discard_closed_class,unigrams=True):
         """
         initialisation of NaiveBayesText classifier.
 
         @param smoothing: use smoothing?
         @type smoothing: boolean
+
+        @param unigrams: use unigrams?
+        @type unigrams: boolean
 
         @param bigrams: add bigrams?
         @type bigrams: boolean
@@ -40,6 +43,8 @@ class NaiveBayesText(Evaluation):
         self.condProb={}
         # use smoothing?
         self.smoothing=smoothing
+        # use unigrams?
+        self.unigrams=unigrams
         # add bigrams?
         self.bigrams=bigrams
         # add trigrams?
@@ -139,13 +144,14 @@ class NaiveBayesText(Evaluation):
         @return: list of strings
         """
         text=[]
-        for token in review:
-            # check if pos tags are included in review e.g. ("bad","JJ")
-            if type(token) is tuple and self.discard_closed_class:
-                if token[1][0:2] in ["NN","JJ","RB","VB"]: text.append((token,))
-            else:
-                # Return unigrams as single element tuple to match ngrams
-                text.append((token,))
+        if self.unigrams:
+            for token in review:
+                # check if pos tags are included in review e.g. ("bad","JJ")
+                if type(token) is tuple and self.discard_closed_class:
+                    if token[1][0:2] in ["NN","JJ","RB","VB"]: text.append((token,))
+                else:
+                    # Return unigrams as single element tuple to match ngrams
+                    text.append((token,))
         if self.bigrams:
             for bigram in ngrams(review, 2, pad_left=True, pad_right=True, left_pad_symbol=('<s>', '<s>'), right_pad_symbol=('</s>', '</s>')): text.append(bigram)
         if self.trigrams:
