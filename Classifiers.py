@@ -38,6 +38,8 @@ class NaiveBayesText(Evaluation):
         @param laplacian_k: value to use for Laplace smoothing
         @type int: boolean
         """
+        np.random.seed(0)
+
         # set of features for classifier
         self.vocabulary=set()
         # prior probability
@@ -56,8 +58,11 @@ class NaiveBayesText(Evaluation):
         self.discard_closed_class=discard_closed_class
         # value to use for Laplacian smoothing?
         self.laplacian_k=laplacian_k
+
         # stored predictions from test instances
         self.predictions=[]
+        # count the number of ties
+        self.ties = 0
 
 
     def getPrior(self, reviews):
@@ -208,6 +213,10 @@ class NaiveBayesText(Evaluation):
         # Keep a record of words with zero probability, and those which did not appear in training
         zero_prob_words = set()
         words_not_in_training = set()
+        
+        # Reset predictions and ties
+        self.predictions = []
+        self.ties = 0
 
         for label, review in reviews:
             log_likelihood = {
@@ -243,7 +252,11 @@ class NaiveBayesText(Evaluation):
                     
                     log_likelihood[test_sentiment] += log_word_prob
 
-            prediction = max(log_likelihood, key=log_likelihood.get)
+            if log_likelihood[SENTIMENTS.pos.review_label] == log_likelihood[SENTIMENTS.neg.review_label]:
+                self.ties += 1
+                prediction = np.random.choice([SENTIMENTS.pos.review_label, SENTIMENTS.neg.review_label])
+            else:
+                prediction = max(log_likelihood, key=log_likelihood.get)
 
             correct_prediction = CORRECT_CLASSIFICATION if prediction == label else INCORRECT_CLASSIFICATION
             self.predictions.append(correct_prediction)
