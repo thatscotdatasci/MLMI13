@@ -16,7 +16,7 @@ from sklearn.feature_extraction.text import CountVectorizer, TfidfTransformer
 from sklearn.svm import SVC
 
 class NaiveBayesText(Evaluation):
-    def __init__(self,smoothing,bigrams,trigrams,discard_closed_class,unigrams=True):
+    def __init__(self,smoothing,bigrams,trigrams,discard_closed_class,laplacian_k=1,unigrams=True):
         """
         initialisation of NaiveBayesText classifier.
 
@@ -34,6 +34,9 @@ class NaiveBayesText(Evaluation):
 
         @param discard_closed_class: restrict unigrams to nouns, adjectives, adverbs and verbs?
         @type discard_closed_class: boolean
+
+        @param laplacian_k: value to use for Laplace smoothing
+        @type int: boolean
         """
         # set of features for classifier
         self.vocabulary=set()
@@ -51,6 +54,8 @@ class NaiveBayesText(Evaluation):
         self.trigrams=trigrams
         # restrict unigrams to nouns, adjectives, adverbs and verbs?
         self.discard_closed_class=discard_closed_class
+        # value to use for Laplacian smoothing?
+        self.laplacian_k=laplacian_k
         # stored predictions from test instances
         self.predictions=[]
 
@@ -110,7 +115,7 @@ class NaiveBayesText(Evaluation):
 
         laplacian_k = 0
         if self.smoothing:
-            laplacian_k = 1
+            laplacian_k = self.laplacian_k
             total_pos_count += laplacian_k*len(self.vocabulary)
             total_neg_count += laplacian_k*len(self.vocabulary)
 
@@ -186,13 +191,15 @@ class NaiveBayesText(Evaluation):
         self.getCondProb(reviews)
 
 
-    def test(self,reviews,verbose: bool = False):
+    def test(self,reviews, ignore_zero_prob = False, verbose: bool = False):
         """
         test NaiveBayesText classifier and store predictions in self.predictions.
         self.predictions should contain a "+" if prediction was correct and "-" otherwise.
 
         @param reviews: movie reviews
         @type reviews: list of (string, list) tuples corresponding to (label, content)
+        @param ignore_zero_prob: whether to ignore zero probability words
+        @type ignore_zero_prob: bool
         @param verbose: whether to print statements
         @type verbose: bool
         """
@@ -215,12 +222,19 @@ class NaiveBayesText(Evaluation):
                         # Look-up the word probability calculated during training
                         # In the non-smoothing case this could be zero, which will raise a numpy warning when we take the log
                         word_prob = self.condProb[test_sentiment][word]
-                        log_word_prob = np.log(word_prob)
 
                         if not word_prob > 0:
                             # Should only have zero probability words for non-smoothed run
                             # Exception thrown below if we have any such words during smoothed run
                             zero_prob_words.add(word)
+
+                        if ignore_zero_prob and word_prob == 0:
+                            # Generally we should not exclude words with zero probability,
+                            # this is only for experimentation
+                            log_word_prob = 0
+                        else:
+                            log_word_prob = np.log(word_prob)
+
                     else:
                         # If there is an unknown word in the test data then we should ignore it
                         # Ref: Jurafsky, Chapter 4
