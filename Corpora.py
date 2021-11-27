@@ -9,7 +9,7 @@ from nltk.stem.porter import PorterStemmer
 
 class MovieReviewCorpus():
     
-    def __init__(self, stemming: bool = False, pos: bool = False, review: str = None):
+    def __init__(self, stemming: bool = False, pos: bool = False, review: str = None, allowed_vocab=None):
         """
         Initialisation of movie review corpus.
 
@@ -21,6 +21,9 @@ class MovieReviewCorpus():
 
         @param review: process a single, specified review
         @type pos: str
+
+        @param allowed_vocab: allowed words
+        @type allowed_vocab: set
         """
         # raw movie reviews
         self.reviews=[]
@@ -37,6 +40,9 @@ class MovieReviewCorpus():
         self.stemming = stemming
         # Keep POS
         self.pos = pos
+        # Allowed vocabulary
+        self.allowed_vocab=allowed_vocab
+
         # porter stemmer
         self.stemmer=PorterStemmer() if stemming else None
         # import movie reviews
@@ -73,6 +79,10 @@ class MovieReviewCorpus():
             token = self.stemmer.stem(word)
         else:
             token = word.lower()
+
+        if self.allowed_vocab and token not in self.allowed_vocab:
+            # Return the excluded tag
+            return False, tag
 
         if self.pos:
             return True, (token, pos_tag)
