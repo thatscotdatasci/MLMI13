@@ -1,5 +1,8 @@
+import string
 from dataclasses import dataclass
 from collections import namedtuple
+
+PUNCTUATION = [*list(string.punctuation), '``', "'s", "n't", "''", '-rrb-', '-lrb-']
 
 @dataclass
 class SENTIMENTS:

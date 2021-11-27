@@ -1,4 +1,4 @@
-from Constants import REVIEWS_BASEDIR, SENTIMENTS, REVIEWS_IGNORE_TAGS
+from Constants import REVIEWS_BASEDIR, SENTIMENTS, REVIEWS_IGNORE_TAGS, PUNCTUATION
 
 import os, codecs, sys
 from collections import defaultdict
@@ -9,7 +9,7 @@ from nltk.stem.porter import PorterStemmer
 
 class MovieReviewCorpus():
     
-    def __init__(self, stemming: bool = False, pos: bool = False, review: str = None, allowed_vocab=None):
+    def __init__(self, stemming: bool = False, pos: bool = False, discard_closed_class: bool = False, remove_punctuation: bool = False, allowed_vocab: set = None, review: str = None):
         """
         Initialisation of movie review corpus.
 
@@ -19,11 +19,17 @@ class MovieReviewCorpus():
         @param pos: use pos tagging? Defaults to False
         @type pos: boolean
 
-        @param review: process a single, specified review
-        @type pos: str
+        @param discard_closed_class: restrict unigrams to nouns, adjectives, adverbs and verbs?
+        @type discard_closed_class: boolean
+
+        @param remove_punctuation: remove punctuation? Defaults to False
+        @type remove_punctuation: boolean
 
         @param allowed_vocab: allowed words
         @type allowed_vocab: set
+
+        @param review: process a single, specified review
+        @type pos: str        
         """
         # raw movie reviews
         self.reviews=[]
@@ -40,6 +46,10 @@ class MovieReviewCorpus():
         self.stemming = stemming
         # Keep POS
         self.pos = pos
+        # Discard closed class
+        self.discard_closed_class = discard_closed_class
+        # Remove punctuation
+        self.remove_punctuation = remove_punctuation
         # Allowed vocabulary
         self.allowed_vocab=allowed_vocab
 
@@ -80,6 +90,17 @@ class MovieReviewCorpus():
         else:
             token = word.lower()
 
+        # Discard closed class
+        if self.discard_closed_class and pos_tag in ["NN","JJ","RB","VB"]:
+            # Return the excluded tag
+            return False, tag
+
+        # Exclude punctuation
+        if self.remove_punctuation and token in PUNCTUATION:
+            # Return the excluded tag
+            return False, tag
+
+        # Exclude tokens which are not in the allowed vocabulary
         if self.allowed_vocab and token not in self.allowed_vocab:
             # Return the excluded tag
             return False, tag
