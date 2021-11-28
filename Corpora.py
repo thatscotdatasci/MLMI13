@@ -6,6 +6,7 @@ from typing import Tuple, Union, final
 
 from glob import glob
 from nltk.stem.porter import PorterStemmer
+from nltk.tokenize import word_tokenize
 
 class MovieReviewCorpus():
     
@@ -17,10 +18,21 @@ class MovieReviewCorpus():
             remove_punctuation: bool = False,
             allowed_vocab: set = None,
             review: str = None,
-            use_txt: bool =False
+            use_txt: bool = False,
+            lower_case: bool = True,
+            tokenise: bool = False,
         ):
         """
         Initialisation of movie review corpus.
+
+        @param use_txt: use the text version of the reviews; default is to use POS tagged version
+        @type use_txt: boolean
+
+        @param tokenise: use the NLTK tokeniser
+        @type tokenise: boolean
+
+        @param lower_case: lowercase the words
+        @type lower_case: boolean
 
         @param stemming: use porter's stemming? Defaults to False
         @type stemming: boolean
@@ -40,17 +52,10 @@ class MovieReviewCorpus():
         @param review: process a single, specified review
         @type pos: str        
         """
-        # raw movie reviews
-        self.reviews=[]
-        # held-out train/test set
-        self.train=[]
-        self.test=[]
-        # folds for cross-validation
-        self.folds=defaultdict(list)
-        # files that contained tokens which could not be processes
-        self.rejects=[]
-        # files which failed to be processes entirely
-        self.failed=[]
+        # Use nltk tokeniser
+        self.tokenise = tokenise
+        # Use lowercase worse
+        self.lower_case = lower_case
         # Use porter's stemming
         self.stemming = stemming
         # Keep POS
@@ -64,6 +69,17 @@ class MovieReviewCorpus():
         # Whether to use the txt files
         self.use_txt=use_txt
 
+        # raw movie reviews
+        self.reviews=[]
+        # held-out train/test set
+        self.train=[]
+        self.test=[]
+        # folds for cross-validation
+        self.folds=defaultdict(list)
+        # files that contained tokens which could not be processes
+        self.rejects=[]
+        # files which failed to be processes entirely
+        self.failed=[]
         # porter stemmer
         self.stemmer=PorterStemmer() if stemming else None
         # import movie reviews
@@ -79,23 +95,25 @@ class MovieReviewCorpus():
         :rtype: Tuple[bool, str]
         """
 
-        # Apply the stemmer if stem is true, else just lowercase the word
+        # Optionally apply the Porter stemmer
         if self.stemmer:
-            token = self.stemmer.stem(word)
-        else:
-            token = word.lower()
+            word = self.stemmer.stem(word)
+        
+        # Optionally lower case the word
+        if self.lower_case:
+            word = word.lower()
 
         # Exclude punctuation
-        if self.remove_punctuation and token in PUNCTUATION:
+        if self.remove_punctuation and word in PUNCTUATION:
             # Return the excluded tag
             return False, word
 
         # Exclude tokens which are not in the allowed vocabulary
-        if self.allowed_vocab and token not in self.allowed_vocab:
+        if self.allowed_vocab and word not in self.allowed_vocab:
             # Return the excluded tag
             return False, word
 
-        return True, token
+        return True, word
 
         
     def _process_tag(self, tag: str) -> Union[Tuple[bool, Tuple[str, str]], Tuple[bool, str]]:
@@ -194,16 +212,22 @@ class MovieReviewCorpus():
 
         # Open and process the file
         with open(filepath) as f:
+            # Loop through each line in turn
             for line in f:
                 # Strip the line of leading/trailing whitespace
                 stripped = line.strip()
                 
                 # If there is anything left then continue processing the tag
                 if stripped:
-                    # Split based on internal whitespace chars 
-                    split = stripped.split()
+                    if self.tokenise:
+                        # Apply the nltk word tokeniser
+                        split = word_tokenize(stripped)
+                    else:
+                        # Simply split based on internal whitespace chars 
+                        split = stripped.split()
 
-                    entries = [self._process_word(word) for word in split]
+                    # Create generator for processeing each word in the line
+                    entries = (self._process_word(word) for word in split)
                     # If the tag was processed successfully then add to token_tags, else add to rejects
                     for e in entries:
                         success, result = e
