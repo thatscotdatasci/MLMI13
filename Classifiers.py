@@ -275,7 +275,7 @@ class NaiveBayesText(Evaluation):
 
 
 class SVMText(Evaluation):
-    def __init__(self,bigrams,trigrams,discard_closed_class):
+    def __init__(self,bigrams,trigrams,discard_closed_class,tf=False,idf=False):
         """
         Initialisation of SVMText object
 
@@ -287,6 +287,13 @@ class SVMText(Evaluation):
 
         @param discard_closed_class: restrict unigrams to nouns, adjectives, adverbs and verbs?
         @type discard_closed_class: boolean
+
+        @param tf: correct for term frequency?
+        @type tf: boolean
+
+        @param idf: correct for inverse document frequency?
+        @type idf: boolean
+
         """
         self.svm_classifier = svm.SVC()
         self.predictions=[]
@@ -297,6 +304,10 @@ class SVMText(Evaluation):
         self.trigrams=trigrams
         # restrict to nouns, adjectives, adverbs and verbs?
         self.discard_closed_class=discard_closed_class
+        # determine term frequency
+        self.tf=tf
+        # determine inverse document frequency
+        self.idf=idf
 
     def extractVocabulary(self,reviews):
         review_entries = set()
@@ -340,7 +351,13 @@ class SVMText(Evaluation):
                 continue
             word_count_array[self.vocabulary[word]] = count
 
-        return word_count_array, set(review_tokens)
+        if self.tf:
+            document_len = len(review_tokens)
+            review_feature_array = word_count_array/document_len
+        else:
+            review_feature_array = word_count_array
+
+        return review_feature_array, set(review_tokens)
 
     def getFeatures(self,reviews):
         """
@@ -356,25 +373,31 @@ class SVMText(Evaluation):
         @type reviews: list of (string, list) tuples corresponding to (label, content)
         """
 
-        word_frequencies = np.zeros((len(reviews), len(self.vocabulary)))
+        word_features = np.zeros((len(reviews), len(self.vocabulary)))
         document_frequency = np.zeros(len(self.vocabulary))
+
+        # Reset input_features, inverse_document_frequency and labels 
+        self.input_features = None
+        self.inverse_document_frequency = None
         self.labels = []
 
         # TODO Q6.
 
         for i, r_entry in enumerate(reviews):
             sentiment, review = r_entry
-            word_count_array, review_words = self.extractReviewFeatures(review)
-            word_frequencies[i,:] = word_count_array/len(review_words)
-            for w in review_words:
+            review_feature_array, review_vocab = self.extractReviewFeatures(review)
+            word_features[i,:] = review_feature_array
+            for w in review_vocab:
                 document_frequency[self.vocabulary[w]] += 1
             self.labels.append(sentiment)
         
         self.inverse_document_frequency = np.log((len(reviews)/document_frequency))
-
-        un_norm_tf_idf = np.multiply(word_frequencies, self.inverse_document_frequency)
-        un_norm_tf_idf_norms = np.linalg.norm(un_norm_tf_idf, axis=1)
-        self.input_features =  np.divide(un_norm_tf_idf,un_norm_tf_idf_norms[:, None])
+        if self.idf:
+            un_norm_tf_idf = np.multiply(word_features, self.inverse_document_frequency)
+            un_norm_tf_idf_norms = np.linalg.norm(un_norm_tf_idf, axis=1)
+            self.input_features =  np.divide(un_norm_tf_idf,un_norm_tf_idf_norms[:, None])
+        else:
+            self.input_features = word_features
 
         # Achieve faster processing using sparse matrix
         self.input_features = csr_matrix(self.input_features)
@@ -406,11 +429,21 @@ class SVMText(Evaluation):
         """
 
         # TODO Q6.1
+
+        # Reset the predictions
+        self.predictions = []
+
         for label, review in reviews:
-            word_count_array, review_words = self.extractReviewFeatures(review, testing=True)
-            un_norm_tf_idf = np.multiply(word_count_array/len(review_words), self.inverse_document_frequency)
-            review_features = csr_matrix(un_norm_tf_idf/np.linalg.norm(un_norm_tf_idf))
+            review_feature_array, _ = self.extractReviewFeatures(review, testing=True)
+
+            if self.idf:
+                # Note that the idf from training is used - this is not updated based on the test documents
+                un_norm_tf_idf = np.multiply(review_feature_array, self.inverse_document_frequency)
+                review_features = un_norm_tf_idf/np.linalg.norm(un_norm_tf_idf)
+            else:
+                review_features = review_feature_array
             
+            review_features = csr_matrix(review_features)
             prediction = self.svm_classifier.predict(review_features)
 
             correct_prediction = CORRECT_CLASSIFICATION if prediction == label else INCORRECT_CLASSIFICATION

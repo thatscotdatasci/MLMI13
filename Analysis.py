@@ -20,8 +20,10 @@ class Evaluation():
         @param corpus: corpus of movie reviews
         @type corpus: MovieReviewCorpus object
         """
-        # reset predictions
-        self.predictions=[]
+        # record the predictions made during CV
+        # these aren't saved directly to self.predictions as this is reset
+        # on each test cycle to avoid contamination from previous tests
+        cv_predictions=[]
 
         # Determine how many folds need to be processed
         num_folds = len(corpus.folds)
@@ -31,6 +33,10 @@ class Evaluation():
         
         # TODO Q3
         for _ in range(num_folds):
+            # Ensure the train and test files are reset on each iteration
+            test_files = []
+            train_files = []
+
             # Set the test_files
             test_fold = next(cycle_folds)
             test_files = corpus.folds[test_fold]
@@ -39,7 +45,6 @@ class Evaluation():
                 print(f'Test fold: {test_fold}')
 
             # Set the train_files
-            train_files = []
             for _ in range(num_folds-1):
                 train_fold = next(cycle_folds)
                 train_files.extend(corpus.folds[train_fold])
@@ -51,8 +56,14 @@ class Evaluation():
             self.train(train_files)
             self.test(test_files)
 
+            # Add the latest predictions
+            cv_predictions.extend(self.predictions)
+
             # Move the iterator one forward
             next(cycle_folds)
+
+        # Replace self.predictions with the content of cv_predictions
+        self.predictions = cv_predictions
             
 
     def getStdDeviation(self):
