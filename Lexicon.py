@@ -47,7 +47,7 @@ class SentimentLexicon(Evaluation):
         self.predictions=[]
         self.breakdowns = []
         
-        # TODO Q0
+        # Q0
 
         # Use the default polarities if values are not passed
         if weak_polarity is None:
