@@ -163,9 +163,11 @@ class NaiveBayesText(Evaluation):
                     # Return unigrams as single element tuple to match ngrams
                     text.append((token,))
         if self.bigrams:
-            for bigram in ngrams(review, 2, pad_left=True, pad_right=True, left_pad_symbol=('<s>', '<s>'), right_pad_symbol=('</s>', '</s>')): text.append(bigram)
+            for bigram in ngrams(review, 2): text.append(bigram)
+            # for bigram in ngrams(review, 2, pad_left=True, pad_right=True, left_pad_symbol='<s>', right_pad_symbol='</s>'): text.append(bigram)
         if self.trigrams:
-            for trigram in ngrams(review, 3, pad_left=True, pad_right=True, left_pad_symbol=('<s>', '<s>'), right_pad_symbol=('</s>', '</s>')): text.append(trigram)
+            for bigram in ngrams(review, 3): text.append(bigram)
+            # for bigram in ngrams(review, 2, pad_left=True, pad_right=True, left_pad_symbol='<s>', right_pad_symbol='</s>'): text.append(bigram)
         return text
 
     def create_vocab_dict(self):
@@ -320,9 +322,11 @@ class SVMText(Evaluation):
                 # Return unigrams as single element tuple to match ngrams
                 text.append((term,))
         if self.bigrams:
-            for bigram in ngrams(review, 2, pad_left=True, pad_right=True, left_pad_symbol=('<s>', '<s>'), right_pad_symbol=('</s>', '</s>')): text.append(bigram)
+            for bigram in ngrams(review, 2): text.append(bigram)
+            # for bigram in ngrams(review, 2, pad_left=True, pad_right=True, left_pad_symbol='<s>', right_pad_symbol='</s>'): text.append(bigram)
         if self.trigrams:
-            for trigram in ngrams(review, 3, pad_left=True, pad_right=True, left_pad_symbol=('<s>', '<s>'), right_pad_symbol=('</s>', '</s>')): text.append(trigram)
+            for bigram in ngrams(review, 3): text.append(bigram)
+            # for bigram in ngrams(review, 2, pad_left=True, pad_right=True, left_pad_symbol='<s>', right_pad_symbol='</s>'): text.append(bigram)
         return text
 
     def extractReviewFeatures(self, review, testing: bool = False):
