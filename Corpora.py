@@ -9,7 +9,16 @@ from nltk.stem.porter import PorterStemmer
 
 class MovieReviewCorpus():
     
-    def __init__(self, stemming: bool = False, pos: bool = False, discard_closed_class: bool = False, remove_punctuation: bool = False, allowed_vocab: set = None, review: str = None):
+    def __init__(
+            self,
+            stemming: bool = False,
+            pos: bool = False,
+            discard_closed_class: bool = False,
+            remove_punctuation: bool = False,
+            allowed_vocab: set = None,
+            review: str = None,
+            use_txt: bool =False
+        ):
         """
         Initialisation of movie review corpus.
 
@@ -52,11 +61,42 @@ class MovieReviewCorpus():
         self.remove_punctuation = remove_punctuation
         # Allowed vocabulary
         self.allowed_vocab=allowed_vocab
+        # Whether to use the txt files
+        self.use_txt=use_txt
 
         # porter stemmer
         self.stemmer=PorterStemmer() if stemming else None
         # import movie reviews
         self.get_reviews(review=review)
+
+    def _process_word(self, word: str) -> Tuple[bool, str]:
+        """
+        Process an individual word.
+
+        :param word: word to be processed
+        :type word: str
+        :return: an indicator of whether the words was accepted, along with the word/processed word
+        :rtype: Tuple[bool, str]
+        """
+
+        # Apply the stemmer if stem is true, else just lowercase the word
+        if self.stemmer:
+            token = self.stemmer.stem(word)
+        else:
+            token = word.lower()
+
+        # Exclude punctuation
+        if self.remove_punctuation and token in PUNCTUATION:
+            # Return the excluded tag
+            return False, word
+
+        # Exclude tokens which are not in the allowed vocabulary
+        if self.allowed_vocab and token not in self.allowed_vocab:
+            # Return the excluded tag
+            return False, word
+
+        return True, token
+
         
     def _process_tag(self, tag: str) -> Union[Tuple[bool, Tuple[str, str]], Tuple[bool, str]]:
         """
@@ -84,24 +124,13 @@ class MovieReviewCorpus():
             # Return the non-processed tag
             return False, tag
 
-        # Apply the stemmer if stem is true, else just lowercase the word
-        if self.stemmer:
-            token = self.stemmer.stem(word)
-        else:
-            token = word.lower()
-
         # Discard closed class
         if self.discard_closed_class and pos_tag in ["NN","JJ","RB","VB"]:
             # Return the excluded tag
             return False, tag
 
-        # Exclude punctuation
-        if self.remove_punctuation and token in PUNCTUATION:
-            # Return the excluded tag
-            return False, tag
-
-        # Exclude tokens which are not in the allowed vocabulary
-        if self.allowed_vocab and token not in self.allowed_vocab:
+        success, token = self._process_word(word)
+        if not success:
             # Return the excluded tag
             return False, tag
 
@@ -146,6 +175,45 @@ class MovieReviewCorpus():
         
         return token_tags, rejects
 
+    def _process_txt_file(self, filepath: str) -> Tuple[list, list]:
+        """
+        Process a text file.
+
+        :param filepath: path of the file to be processed
+        :type filepath: str
+        :return: The identified words, and the words that could not be proccessed
+        :rtype: Tuple[list, list]
+        """
+        # Raise an exception if the file does not exist
+        if not os.path.isfile(filepath):
+            raise FileNotFoundError(f"{filepath} does not exist")
+
+        # Initialise empty lists to hold the processed tags and rejected tags
+        token_tags = []
+        rejects = []
+
+        # Open and process the file
+        with open(filepath) as f:
+            for line in f:
+                # Strip the line of leading/trailing whitespace
+                stripped = line.strip()
+                
+                # If there is anything left then continue processing the tag
+                if stripped:
+                    # Split based on internal whitespace chars 
+                    split = stripped.split()
+
+                    entries = [self._process_word(word) for word in split]
+                    # If the tag was processed successfully then add to token_tags, else add to rejects
+                    for e in entries:
+                        success, result = e
+                        if success:
+                            token_tags.append(result)
+                        else:
+                            rejects.append(result)
+
+        return token_tags, rejects
+
     def get_reviews(self, review: str = None):
         """
         processing of movie reviews.
@@ -178,8 +246,13 @@ class MovieReviewCorpus():
             # For each of the "POS" and "NEG" folders
             for sentiment in [SENTIMENTS.pos.review_label, SENTIMENTS.neg.review_label]:
                 
-                # Identify the files which have the .tag extension
-                sent_files = glob(os.path.join(REVIEWS_BASEDIR, sentiment, "*.tag"))
+                if self.use_txt:
+                    # Identify the files which have the .txt extension
+                    sent_files = glob(os.path.join(REVIEWS_BASEDIR, sentiment, "*.txt"))
+                else:
+                    # Identify the files which have the .tag extension
+                    sent_files = glob(os.path.join(REVIEWS_BASEDIR, sentiment, "*.tag"))
+
                 print(f"Identified {len(sent_files)} {sentiment} files to be processed")
 
                 file_dict[sentiment] = sent_files
@@ -196,7 +269,10 @@ class MovieReviewCorpus():
             for file in files:
                 # Attempt to process the file; add to self.failed if any exceptions are thrown
                 try:
-                    token_tags, rejected = self._process_tag_file(file)   
+                    if self.use_txt:
+                        token_tags, rejected = self._process_txt_file(file)
+                    else:
+                        token_tags, rejected = self._process_tag_file(file)
                 except Exception as e:
                     self.failed.append((e, file))
                     continue
