@@ -10,7 +10,7 @@ from sklearn import svm
 # Sklearn implementation libraries
 import os
 from sklearn.pipeline import Pipeline
-from sklearn.model_selection import train_test_split, cross_val_score
+from sklearn.model_selection import train_test_split, cross_val_score, GridSearchCV
 from sklearn.datasets import load_files
 from sklearn.feature_extraction.text import CountVectorizer, TfidfTransformer
 from sklearn.svm import SVC
@@ -275,7 +275,7 @@ class NaiveBayesText(Evaluation):
 
 
 class SVMText(Evaluation):
-    def __init__(self,bigrams,trigrams,discard_closed_class,tf=False,idf=False):
+    def __init__(self,bigrams,trigrams,discard_closed_class,tf: bool = False, idf: bool = False, C: int = 1.0, kernel: str = 'rbf'):
         """
         Initialisation of SVMText object
 
@@ -294,10 +294,19 @@ class SVMText(Evaluation):
         @param idf: correct for inverse document frequency?
         @type idf: boolean
 
+        @param idf: correct for inverse document frequency?
+        @type idf: boolean
+
+        @param C: SVC regularisation parameter
+        @type idf: int
+
+        @param kernel: SVC kernel
+        @type idf: str
         """
         self.svm_classifier = svm.SVC()
         self.predictions=[]
         self.vocabulary={}
+        
         # add in bigrams?
         self.bigrams=bigrams
         # add in trigrams?
@@ -308,6 +317,12 @@ class SVMText(Evaluation):
         self.tf=tf
         # determine inverse document frequency
         self.idf=idf
+
+        # SVC regularisation parameter
+        self.C = C
+        # SVC kernel
+        self.kernel = kernel
+
 
     def extractVocabulary(self,reviews):
         review_entries = set()
@@ -402,7 +417,7 @@ class SVMText(Evaluation):
         # Achieve faster processing using sparse matrix
         self.input_features = csr_matrix(self.input_features)
 
-    def train(self,reviews):
+    def train(self,reviews,grid_search_params=None):
         """
         train svm. This uses the sklearn SVM module, and further details can be found using
         the sci-kit docs. You can try changing the SVM parameters. 
@@ -416,9 +431,16 @@ class SVMText(Evaluation):
         # function to determine features in training set.
         self.getFeatures(reviews)
 
-        # reset SVM classifier and train SVM model
-        self.svm_classifier = svm.SVC()
-        self.svm_classifier.fit(self.input_features, self.labels)
+        if grid_search_params is not None:
+            grid_search = GridSearchCV(svm.SVC(), grid_search_params, n_jobs=-1, cv=10)
+            grid_search.fit(self.input_features, self.labels)
+            self.svm_classifier = svm.SVC(**grid_search.best_params_)
+            self.svm_classifier.fit(self.input_features, self.labels)
+            return grid_search
+        else:
+            # reset SVM classifier and train SVM model
+            self.svm_classifier = svm.SVC(C=self.C, kernel=self.kernel)
+            self.svm_classifier.fit(self.input_features, self.labels)
 
     def test(self, reviews):
         """
