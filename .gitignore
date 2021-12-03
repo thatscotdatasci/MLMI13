@@ -1,6 +1,6 @@
 __pycache__/
 .ipynb_checkpoints/*
-*.pkl
+*.xlsx
 **/.DS_Store
 /imdb/
 /enwiki_dbow/

@@ -1,0 +1,13 @@
+Trained using the IMDB reviews
+
+gensim_sklearn = GensimSVMSklearn(
+    d2v_training_files=d2v_training_files,
+    d2v_epochs=100,
+    d2v_infer_epochs=50,
+    d2v_min_count=5,
+    d2v_vector_size=50,
+    d2v_window=5,
+    d2v_dm=0,
+    d2v_dm_concat=0,
+    d2v_dbow_words=1
+)

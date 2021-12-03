@@ -217,7 +217,7 @@ class GensimSVMSklearn:
                     infer_epochs = self.d2v_infer_epochs
                 )),
                 ('svc', SVC(verbose=self.verbose)),
-            ])
+            ], verbose=True)
         return self._pipeline
 
     def train(self, X, y):
@@ -227,10 +227,10 @@ class GensimSVMSklearn:
         preds = self.pipeline.predict(X)
         print(np.mean(preds == y))
 
-    def cross_validate(self, X, y, folds: int = 3):
+    def cross_validate(self, X, y, folds: int = 5):
         scores = cross_val_score(self.pipeline, X, y, cv=folds)
         print(scores)
 
     def grid_search(self, X, y, params: dict):
-        self.gs = GridSearchCV(self.pipeline, params, n_jobs=-1)
+        self.gs = GridSearchCV(self.pipeline, params, n_jobs=10, verbose=5)
         self.gs.fit(X, y) 
