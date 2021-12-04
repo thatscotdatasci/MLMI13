@@ -272,10 +272,10 @@ class MovieReviewCorpus():
                 
                 if self.use_txt:
                     # Identify the files which have the .txt extension
-                    sent_files = glob(os.path.join(REVIEWS_BASEDIR, sentiment, "*.txt"))
+                    sent_files = sorted(glob(os.path.join(REVIEWS_BASEDIR, sentiment, "*.txt")))
                 else:
                     # Identify the files which have the .tag extension
-                    sent_files = glob(os.path.join(REVIEWS_BASEDIR, sentiment, "*.tag"))
+                    sent_files = sorted(glob(os.path.join(REVIEWS_BASEDIR, sentiment, "*.tag")))
 
                 print(f"Identified {len(sent_files)} {sentiment} files to be processed")
 
