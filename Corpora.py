@@ -315,7 +315,7 @@ class MovieReviewCorpus():
 
                 # Add the results to the appropriate entry of the self.fold dict, based on the filename
                 assert basename[2].isdigit()
-                self.folds[basename[2]].append(result)
+                self.folds[int(basename[2])].append(result)
                 
                 # If any tags were rejected then add these to self.rejects
                 if rejected:
